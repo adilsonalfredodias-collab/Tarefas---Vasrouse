@@ -1,0 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-surface: #131317;
+  --color-surface-dim: #131317;
+  --color-surface-bright: #39393d;
+  --color-surface-container-lowest: #0e0e12;
+  --color-surface-container-low: #1b1b1f;
+  --color-surface-container: #1f1f23;
+  --color-surface-container-high: #2a292e;
+  --color-surface-container-highest: #353439;
+  --color-on-surface: #e4e1e7;
+  --color-on-surface-variant: #c8c4d2;
+  --color-outline: #928f9c;
+  --color-outline-variant: #474551;
+  
+  --color-primary: #c6bfff;
+  --color-on-primary: #2d2373;
+  --color-primary-container: #5a52a3;
+  --color-on-primary-container: #d7d1ff;
+  --color-inverse-primary: #5c54a5;
+  
+  --color-secondary: #ebc24c;
+  --color-on-secondary: #3d2e00;
+  --color-secondary-container: #b18c17;
+  --color-on-secondary-container: #352800;
+  
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+  --color-error-container: #93000a;
+  
+  --color-background: #0d0d11;
+  --color-on-background: #e4e1e7;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-background);
+  color: var(--color-on-background);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar for beautiful dark UI */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

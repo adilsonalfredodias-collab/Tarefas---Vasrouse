@@ -1,0 +1,6 @@
+{
+  "name": "Vasrouse Creative Workspace OS",
+  "description": "Plataforma mobile-first para gestão de tarefas, acompanhamento de produtividade e administração de recursos humanos no Workspace OS.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
