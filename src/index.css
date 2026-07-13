@@ -36,6 +36,112 @@
   --color-on-background: #e4e1e7;
 }
 
+.light-theme {
+  --color-background: #f4f4f7;
+  --color-on-background: #111116;
+  
+  --color-surface: #ffffff;
+  --color-surface-dim: #eae9ee;
+  --color-surface-bright: #dbdae1;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f5f4f8;
+  --color-surface-container: #ebe9f0;
+  --color-surface-container-high: #e0dee6;
+  --color-surface-container-highest: #d5d3db;
+  
+  --color-on-surface: #111116;
+  --color-on-surface-variant: #595862;
+  --color-outline: #777680;
+  --color-outline-variant: #d5d3db;
+  
+  --color-primary: #5c54a5;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #eae8f9;
+  --color-on-primary-container: #1b1063;
+  --color-inverse-primary: #c6bfff;
+  
+  --color-secondary: #af8910;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #fef4d4;
+  --color-on-secondary-container: #352800;
+  
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+}
+
+/* Intelligent light theme adapter overrides for hardcoded dark background/text classes */
+.light-theme [class*="bg-[#16161F]"],
+.light-theme [class*="bg-[#1C1C26]"],
+.light-theme [class*="bg-[#1C1C25]"],
+.light-theme [class*="bg-[#1E1E26]"],
+.light-theme [class*="bg-[#1c1c26]"] {
+  background-color: var(--color-surface) !important;
+}
+
+.light-theme [class*="bg-[#0D0D11]"],
+.light-theme [class*="bg-[#121219]"],
+.light-theme [class*="bg-[#121212]"] {
+  background-color: var(--color-surface-dim) !important;
+}
+
+.light-theme [class*="border-white/10"],
+.light-theme [class*="border-white/5"] {
+  border-color: var(--color-outline-variant) !important;
+}
+
+.light-theme [class*="divide-white/5"] > * {
+  border-color: var(--color-outline-variant) !important;
+}
+
+.light-theme p,
+.light-theme label,
+.light-theme h1,
+.light-theme h2,
+.light-theme h3,
+.light-theme h4,
+.light-theme h5,
+.light-theme h6 {
+  color: var(--color-on-surface) !important;
+}
+
+.light-theme .text-on-surface-variant {
+  color: var(--color-on-surface-variant) !important;
+}
+
+/* Ensure buttons and badges with primary colors retain their light text contrast */
+.light-theme button.bg-primary-container,
+.light-theme button.bg-primary-container *,
+.light-theme .bg-primary-container *,
+.light-theme button.bg-emerald-500,
+.light-theme button.bg-emerald-600,
+.light-theme button.bg-emerald-500 *,
+.light-theme button.bg-red-500,
+.light-theme button.bg-[#5A52A3],
+.light-theme button.bg-[#5A52A3] *,
+.light-theme button.bg-[#5a52a3],
+.light-theme button.bg-[#5a52a3] *,
+.light-theme .bg-emerald-500 *,
+.light-theme .bg-emerald-600 *,
+.light-theme .bg-red-500 *,
+.light-theme .bg-error *,
+.light-theme .bg-error {
+  color: #ffffff !important;
+}
+
+.light-theme .text-white {
+  color: var(--color-on-surface) !important;
+}
+
+/* Keep brand elements and high-contrast texts highlighted */
+.light-theme .text-[#c6bfff] {
+  color: var(--color-primary) !important;
+}
+
+.light-theme .text-[#ebc24c] {
+  color: var(--color-secondary) !important;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--color-background);

@@ -44,6 +44,12 @@ export default function App() {
   const [activeView, setActiveView] = useState<ActiveViewType>('login');
   const [currentRole, setCurrentRole] = useState<'admin' | 'leader' | 'member'>('admin');
   
+  // Theme State
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    const stored = localStorage.getItem("vasrouse_theme");
+    return stored ? stored === "dark" : true;
+  });
+  
   // Data States
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [hrData, setHrData] = useState<Record<string, HRData>>({});
@@ -158,6 +164,14 @@ export default function App() {
     localStorage.setItem("vasrouse_hrData", JSON.stringify(updated));
   };
 
+  const handleToggleDarkMode = () => {
+    setIsDarkMode(prev => {
+      const next = !prev;
+      localStorage.setItem("vasrouse_theme", next ? "dark" : "light");
+      return next;
+    });
+  };
+
   const handleLoginSuccess = (email: string) => {
     setIsLoggedIn(true);
     // Find matching profile by email or fallback to Ana Silva
@@ -246,7 +260,7 @@ export default function App() {
   const activeTask = tasks.find(t => t.id === selectedTaskId) || tasks[0];
 
   return (
-    <div id="app-workspace-canvas" className="min-h-screen bg-background text-on-background flex flex-col md:flex-row pb-24 md:pb-0 pt-16 md:pt-0">
+    <div id="app-workspace-canvas" className={`min-h-screen bg-background text-on-background flex flex-col md:flex-row pb-24 md:pb-0 pt-16 md:pt-0 ${!isDarkMode ? 'light-theme' : ''}`}>
       
       {/* 1. Mobile Top Header Bar */}
       <header className="fixed top-0 w-full z-40 md:hidden bg-surface-dim/85 backdrop-blur-md border-b border-white/10 flex justify-between items-center h-16 px-4">
@@ -450,8 +464,10 @@ export default function App() {
             currentRole={currentRole} 
             onRoleChange={handleRoleChange} 
             onLogout={handleLogout}
-            onUpdateProfile={(name, title) => {
-              const updated = profiles.map(p => p.id === "ana-silva" ? { ...p, name, funcao: title } : p);
+            isDarkMode={isDarkMode}
+            onToggleDarkMode={handleToggleDarkMode}
+            onUpdateProfile={(name, title, aniversario, residencia, horario, avatar) => {
+              const updated = profiles.map(p => p.id === "ana-silva" ? { ...p, name, funcao: title, aniversario, residencia, horario, avatar } : p);
               handleUpdateProfiles(updated);
             }}
           />

@@ -208,7 +208,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
         )}
 
         <div className="mt-8 text-center text-xs text-outline">
-          © 2024 Vasrouse Creative. Todos os direitos reservados.
+          © 2026 Vasrouse Creative. Todos os direitos reservados.
         </div>
       </main>
     </div>
