@@ -7,6 +7,20 @@
 -- adequadas para colar diretamente no Editor de SQL do seu painel Supabase.
 -- =========================================================================
 
+-- =========================================================================
+-- 0. APAGAR TABELAS ANTERIORES (RESET COMPLETO E SEGURO)
+-- =========================================================================
+-- O uso de CASCADE garante que todas as políticas, índices e chaves estrangeiras
+-- associadas sejam apagados sem erros de dependência.
+DROP TABLE IF EXISTS public.daily_report_items CASCADE;
+DROP TABLE IF EXISTS public.daily_reports CASCADE;
+DROP TABLE IF EXISTS public.notifications CASCADE;
+DROP TABLE IF EXISTS public.comments CASCADE;
+DROP TABLE IF EXISTS public.attachments CASCADE;
+DROP TABLE IF EXISTS public.tasks CASCADE;
+DROP TABLE IF EXISTS public.hr_data CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
+
 -- Ativar extensões necessárias (como gerador de UUIDs e criptografia se necessário)
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -520,138 +534,124 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 10. SINCRONIZAÇÃO RETROATIVA DE UTILIZADORES JÁ REGISTADOS (BACKFILL)
 -- =========================================================================
 -- Esta função procura todos os utilizadores já registados na tabela auth.users
--- do Supabase e atualiza retroativamente as suas informações públicas
--- (nome, função, avatar e nível de acesso) para coincidir com a lista oficial.
-
-CREATE OR REPLACE FUNCTION public.backfill_existing_users()
+-- do SupabaseCREATE OR REPLACE FUNCTION public.backfill_existing_users()
 RETURNS TEXT AS $$
 DECLARE
     r RECORD;
     v_count INTEGER := 0;
+    v_name TEXT;
+    v_funcao TEXT;
+    v_nivel_acesso TEXT;
+    v_avatar TEXT;
 BEGIN
     FOR r IN SELECT id, email FROM auth.users LOOP
+        -- Valores padrão para utilizadores desconhecidos
+        v_name := 'Colaborador Novo';
+        v_funcao := 'Membro da Equipa';
+        v_nivel_acesso := 'member';
+        v_avatar := 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=256&auto=format&fit=crop';
+
         -- Admins
         IF lower(r.email) = 'jorgedealmeida.admin@vasrouse.ao' THEN
-            UPDATE public.profiles 
-            SET name = 'Jorge de Almeida', 
-                funcao = 'Administrador Principal', 
-                nivel_acesso = 'admin', 
-                avatar = 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=256&auto=format&fit=crop' 
-            WHERE id = r.id;
-            
-            INSERT INTO public.hr_data (id_perfil, salario, iban, contrato) 
-            VALUES (r.id, 750000.00, 'AO06.0040.0000.1234.5678.9012.3', 'Efetivo') 
-            ON CONFLICT (id_perfil) DO NOTHING;
-            
-            v_count := v_count + 1;
+            v_name := 'Jorge de Almeida';
+            v_funcao := 'Administrador Principal';
+            v_nivel_acesso := 'admin';
+            v_avatar := 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=256&auto=format&fit=crop';
             
         ELSIF lower(r.email) = 'adilsondias.admin@vasrouse.ao' THEN
-            UPDATE public.profiles 
-            SET name = 'Adilson Dias', 
-                funcao = 'Administrador de Sistemas', 
-                nivel_acesso = 'admin', 
-                avatar = 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=256&auto=format&fit=crop' 
-            WHERE id = r.id;
-            
-            INSERT INTO public.hr_data (id_perfil, salario, iban, contrato) 
-            VALUES (r.id, 750000.00, 'AO06.0040.0000.1234.5678.9012.3', 'Efetivo') 
-            ON CONFLICT (id_perfil) DO NOTHING;
-            
-            v_count := v_count + 1;
+            v_name := 'Adilson Dias';
+            v_funcao := 'Administrador de Sistemas';
+            v_nivel_acesso := 'admin';
+            v_avatar := 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=256&auto=format&fit=crop';
             
         -- Leaders (Coordenadores / Assistentes)
         ELSIF lower(r.email) = 'manueldomingos.coord@vasrouse.ao' THEN
-            UPDATE public.profiles 
-            SET name = 'Manuel Domingos', 
-                funcao = 'Coordenador de Projetos', 
-                nivel_acesso = 'leader', 
-                avatar = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=256&auto=format&fit=crop' 
-            WHERE id = r.id;
-            
-            INSERT INTO public.hr_data (id_perfil, salario, iban, contrato) 
-            VALUES (r.id, 450000.00, 'AO06.0040.0000.1234.5678.9012.3', 'Efetivo') 
-            ON CONFLICT (id_perfil) DO NOTHING;
-            
-            v_count := v_count + 1;
+            v_name := 'Manuel Domingos';
+            v_funcao := 'Coordenador de Projetos';
+            v_nivel_acesso := 'leader';
+            v_avatar := 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=256&auto=format&fit=crop';
             
         ELSIF lower(r.email) = 'beatrizquengue.admin.ass@vasrouse.ao' THEN
-            UPDATE public.profiles 
-            SET name = 'Beatriz Quengue', 
-                funcao = 'Assistente de Administração', 
-                nivel_acesso = 'leader', 
-                avatar = 'https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=256&auto=format&fit=crop' 
-            WHERE id = r.id;
+            v_name := 'Beatriz Quengue';
+            v_funcao := 'Assistente de Administração';
+            v_nivel_acesso := 'leader';
+            v_avatar := 'https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=256&auto=format&fit=crop';
             
-            INSERT INTO public.hr_data (id_perfil, salario, iban, contrato) 
-            VALUES (r.id, 450000.00, 'AO06.0040.0000.1234.5678.9012.3', 'Efetivo') 
-            ON CONFLICT (id_perfil) DO NOTHING;
-            
-            v_count := v_count + 1;
-
         -- Members (Colaboradores / Redes Sociais / Designers)
         ELSIF lower(r.email) = 'elizabethpamela.jorn@vasrouse.ao' THEN
-            UPDATE public.profiles 
-            SET name = 'Elizabeth Pamela', 
-                funcao = 'Jornalista', 
-                nivel_acesso = 'member', 
-                avatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop' 
-            WHERE id = r.id;
-            v_count := v_count + 1;
+            v_name := 'Elizabeth Pamela';
+            v_funcao := 'Jornalista';
+            v_nivel_acesso := 'member';
+            v_avatar := 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop';
             
         ELSIF lower(r.email) = 'emersonmicanda.design@vasrouse.ao' THEN
-            UPDATE public.profiles 
-            SET name = 'Emerson Micanda', 
-                funcao = 'Web Designer', 
-                nivel_acesso = 'member', 
-                avatar = 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=256&auto=format&fit=crop' 
-            WHERE id = r.id;
-            v_count := v_count + 1;
+            v_name := 'Emerson Micanda';
+            v_funcao := 'Web Designer';
+            v_nivel_acesso := 'member';
+            v_avatar := 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=256&auto=format&fit=crop';
             
         ELSIF lower(r.email) = 'tatianatavares.gr@vasrouse.ao' THEN
-            UPDATE public.profiles 
-            SET name = 'Tatiana Tavares', 
-                funcao = 'Gestora de Redes Sociais', 
-                nivel_acesso = 'member', 
-                avatar = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=256&auto=format&fit=crop' 
-            WHERE id = r.id;
-            v_count := v_count + 1;
+            v_name := 'Tatiana Tavares';
+            v_funcao := 'Gestora de Redes Sociais';
+            v_nivel_acesso := 'member';
+            v_avatar := 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=256&auto=format&fit=crop';
             
         ELSIF lower(r.email) = 'katianagregorio.gr@vasrouse.ao' THEN
-            UPDATE public.profiles 
-            SET name = 'Katiana Gregório', 
-                funcao = 'Gestora de Redes Sociais', 
-                nivel_acesso = 'member', 
-                avatar = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=256&auto=format&fit=crop' 
-            WHERE id = r.id;
-            v_count := v_count + 1;
+            v_name := 'Katiana Gregório';
+            v_funcao := 'Gestora de Redes Sociais';
+            v_nivel_acesso := 'member';
+            v_avatar := 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=256&auto=format&fit=crop';
             
         ELSIF lower(r.email) = 'estefaneainocencio.gr@vasrouse.ao' THEN
-            UPDATE public.profiles 
-            SET name = 'Estefaneia Inocêncio', 
-                funcao = 'Gestora de Redes Sociais', 
-                nivel_acesso = 'member', 
-                avatar = 'https://images.unsplash.com/photo-1554151228-14d9def656e4?q=80&w=256&auto=format&fit=crop' 
-            WHERE id = r.id;
-            v_count := v_count + 1;
+            v_name := 'Estefaneia Inocêncio';
+            v_funcao := 'Gestora de Redes Sociais';
+            v_nivel_acesso := 'member';
+            v_avatar := 'https://images.unsplash.com/photo-1554151228-14d9def656e4?q=80&w=256&auto=format&fit=crop';
             
         ELSIF lower(r.email) = 'osvaldogregorio.gr@vasrouse.ao' THEN
-            UPDATE public.profiles 
-            SET name = 'Osvaldo Gregório', 
-                funcao = 'Gestor de Redes Sociais', 
-                nivel_acesso = 'member', 
-                avatar = 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=256&auto=format&fit=crop' 
-            WHERE id = r.id;
-            v_count := v_count + 1;
+            v_name := 'Osvaldo Gregório';
+            v_funcao := 'Gestor de Redes Sociais';
+            v_nivel_acesso := 'member';
+            v_avatar := 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=256&auto=format&fit=crop';
             
         ELSIF lower(r.email) = 'claudiocateco.gr@vasrouse.ao' THEN
-            UPDATE public.profiles 
-            SET name = 'Cláudio Cateco', 
-                funcao = 'Gestor de Redes Sociais', 
-                nivel_acesso = 'member', 
-                avatar = 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?q=80&w=256&auto=format&fit=crop' 
-            WHERE id = r.id;
-            v_count := v_count + 1;
+            v_name := 'Cláudio Cateco';
+            v_funcao := 'Gestor de Redes Sociais';
+            v_nivel_acesso := 'member';
+            v_avatar := 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?q=80&w=256&auto=format&fit=crop';
         END IF;
+
+        -- Garante que o perfil público existe para este utilizador da auth
+        INSERT INTO public.profiles (id, name, funcao, nivel_acesso, avatar, aniversario, residencia, horario)
+        VALUES (
+            r.id,
+            v_name,
+            v_funcao,
+            v_nivel_acesso,
+            v_avatar,
+            '12 de Abril',
+            'Luanda, Angola',
+            '08:00 - 17:00'
+        )
+        ON CONFLICT (id) DO UPDATE SET
+            name = EXCLUDED.name,
+            funcao = EXCLUDED.funcao,
+            nivel_acesso = EXCLUDED.nivel_acesso,
+            avatar = EXCLUDED.avatar;
+
+        -- Cria ou atualiza os dados de RH correspondentes
+        IF v_nivel_acesso IN ('admin', 'leader') THEN
+            INSERT INTO public.hr_data (id_perfil, salario, iban, contrato) 
+            VALUES (
+                r.id, 
+                CASE WHEN v_nivel_acesso = 'admin' THEN 750000.00 ELSE 450000.00 END, 
+                'AO06.0040.0000.1234.5678.9012.3', 
+                'Efetivo'
+            ) 
+            ON CONFLICT (id_perfil) DO NOTHING;
+        END IF;
+
+        v_count := v_count + 1;
     END LOOP;
     
     RETURN 'Sucesso: ' || v_count || ' perfis já registados foram sincronizados com as novas funções e cargos.';
