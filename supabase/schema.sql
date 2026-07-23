@@ -331,8 +331,9 @@ END $$;
 
 -- 1. Políticas da Tabela Profiles
 DROP POLICY IF EXISTS "Utilizadores podem ver todos os perfis" ON public.profiles;
-CREATE POLICY "Utilizadores podem ver todos os perfis" ON public.profiles
-    FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Utilizadores autenticados com perfil podem ver perfis" ON public.profiles;
+CREATE POLICY "Utilizadores autenticados com perfil podem ver perfis" ON public.profiles
+    FOR SELECT USING (auth.role() = 'authenticated');
 
 DROP POLICY IF EXISTS "Utilizadores podem editar o seu próprio perfil" ON public.profiles;
 CREATE POLICY "Utilizadores podem editar o seu próprio perfil" ON public.profiles
@@ -361,8 +362,12 @@ CREATE POLICY "Apenas Admins podem atualizar dados de RH" ON public.hr_data
 
 -- 3. Políticas da Tabela Tasks
 DROP POLICY IF EXISTS "Qualquer utilizador autenticado pode ver tarefas" ON public.tasks;
-CREATE POLICY "Qualquer utilizador autenticado pode ver tarefas" ON public.tasks
-    FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Apenas utilizadores com perfil registado podem ver tarefas" ON public.tasks;
+CREATE POLICY "Apenas utilizadores com perfil registado podem ver tarefas" ON public.tasks
+    FOR SELECT USING (
+        auth.role() = 'authenticated' AND
+        EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid())
+    );
 
 DROP POLICY IF EXISTS "Membros podem atualizar tarefas em que estão associados ou se forem Admins/Leaders" ON public.tasks;
 CREATE POLICY "Membros podem atualizar tarefas em que estão associados ou se forem Admins/Leaders" ON public.tasks
@@ -387,12 +392,19 @@ CREATE POLICY "Admins e Leaders podem gerir totalmente as tarefas" ON public.tas
 
 -- 4. Políticas da Tabela Comments
 DROP POLICY IF EXISTS "Todos podem ler comentários de tarefas" ON public.comments;
-CREATE POLICY "Todos podem ler comentários de tarefas" ON public.comments
-    FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Apenas utilizadores com perfil registado podem ver comentários" ON public.comments;
+CREATE POLICY "Apenas utilizadores com perfil registado podem ver comentários" ON public.comments
+    FOR SELECT USING (
+        auth.role() = 'authenticated' AND
+        EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid())
+    );
 
 DROP POLICY IF EXISTS "Qualquer utilizador autenticado pode comentar" ON public.comments;
 CREATE POLICY "Qualquer utilizador autenticado pode comentar" ON public.comments
-    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+    FOR INSERT WITH CHECK (
+        auth.role() = 'authenticated' AND
+        EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid())
+    );
 
 DROP POLICY IF EXISTS "O autor pode remover ou atualizar o próprio comentário" ON public.comments;
 CREATE POLICY "O autor pode remover ou atualizar o próprio comentário" ON public.comments
@@ -400,12 +412,19 @@ CREATE POLICY "O autor pode remover ou atualizar o próprio comentário" ON publ
 
 -- 5. Políticas da Tabela Attachments
 DROP POLICY IF EXISTS "Todos podem ver ficheiros anexados" ON public.attachments;
-CREATE POLICY "Todos podem ver ficheiros anexados" ON public.attachments
-    FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Apenas utilizadores com perfil registado podem ver anexos" ON public.attachments;
+CREATE POLICY "Apenas utilizadores com perfil registado podem ver anexos" ON public.attachments
+    FOR SELECT USING (
+        auth.role() = 'authenticated' AND
+        EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid())
+    );
 
 DROP POLICY IF EXISTS "Inserir anexo se tiver permissão" ON public.attachments;
 CREATE POLICY "Inserir anexo se tiver permissão" ON public.attachments
-    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+    FOR INSERT WITH CHECK (
+        auth.role() = 'authenticated' AND
+        EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid())
+    );
 
 -- 6. Políticas da Tabela Notifications
 DROP POLICY IF EXISTS "Utilizadores vêem apenas as suas próprias notificações" ON public.notifications;
@@ -418,16 +437,24 @@ CREATE POLICY "Utilizadores podem marcar as suas notificações como lidas" ON p
 
 -- 7. Políticas para Relatórios Diários
 DROP POLICY IF EXISTS "Utilizadores podem visualizar relatórios de todos" ON public.daily_reports;
-CREATE POLICY "Utilizadores podem visualizar relatórios de todos" ON public.daily_reports
-    FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Apenas utilizadores com perfil registado podem ver relatórios" ON public.daily_reports;
+CREATE POLICY "Apenas utilizadores com perfil registado podem ver relatórios" ON public.daily_reports
+    FOR SELECT USING (
+        auth.role() = 'authenticated' AND
+        EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid())
+    );
 
 DROP POLICY IF EXISTS "Utilizadores podem inserir e modificar os seus próprios relatórios" ON public.daily_reports;
 CREATE POLICY "Utilizadores podem inserir e modificar os seus próprios relatórios" ON public.daily_reports
     FOR ALL USING (auth.uid() = id_usuario);
 
 DROP POLICY IF EXISTS "Utilizadores podem ler todos os itens de relatórios" ON public.daily_report_items;
-CREATE POLICY "Utilizadores podem ler todos os itens de relatórios" ON public.daily_report_items
-    FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Apenas utilizadores com perfil registado podem ler itens de relatórios" ON public.daily_report_items;
+CREATE POLICY "Apenas utilizadores com perfil registado podem ler itens de relatórios" ON public.daily_report_items
+    FOR SELECT USING (
+        auth.role() = 'authenticated' AND
+        EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid())
+    );
 
 DROP POLICY IF EXISTS "Inserir e modificar itens se pertencerem ao seu relatório" ON public.daily_report_items;
 CREATE POLICY "Inserir e modificar itens se pertencerem ao seu relatório" ON public.daily_report_items
@@ -534,7 +561,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 10. SINCRONIZAÇÃO RETROATIVA DE UTILIZADORES JÁ REGISTADOS (BACKFILL)
 -- =========================================================================
 -- Esta função procura todos os utilizadores já registados na tabela auth.users
--- do SupabaseCREATE OR REPLACE FUNCTION public.backfill_existing_users()
+-- do Supabase
+CREATE OR REPLACE FUNCTION public.backfill_existing_users()
 RETURNS TEXT AS $$
 DECLARE
     r RECORD;

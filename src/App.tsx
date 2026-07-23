@@ -36,6 +36,17 @@ import NotificationsView from "./components/NotificationsView";
 import ProfileView from "./components/ProfileView";
 import ReportsView from "./components/ReportsView";
 
+// Supabase Direct Integration
+import { 
+  getSupabaseCredentials, 
+  fetchProfilesFromSupabase, 
+  fetchHRDataFromSupabase, 
+  fetchTasksFromSupabase, 
+  saveTaskToSupabase, 
+  fetchNotificationsFromSupabase, 
+  fetchDailyReportsFromSupabase 
+} from "./lib/supabase";
+
 type ActiveViewType = 'login' | 'dashboard' | 'team' | 'calendar' | 'notifications' | 'profile' | 'task-details' | 'reports';
 
 
@@ -58,55 +69,116 @@ export default function App() {
   const [dailyReports, setDailyReports] = useState<DailyReport[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
-  // Load and initialize data from LocalStorage or mockData
+  // Load data directly from Supabase if configured, or fallback to LocalStorage/mockData
+  const loadSupabaseData = async () => {
+    const creds = getSupabaseCredentials();
+    if (!creds.isConfigured) {
+      return false;
+    }
+
+    try {
+      const [spProfiles, spHR, spTasks, spNotifs, spReports] = await Promise.all([
+        fetchProfilesFromSupabase().catch(() => null),
+        fetchHRDataFromSupabase().catch(() => null),
+        fetchTasksFromSupabase().catch(() => null),
+        fetchNotificationsFromSupabase().catch(() => null),
+        fetchDailyReportsFromSupabase().catch(() => null)
+      ]);
+
+      if (spProfiles && spProfiles.length > 0) {
+        setProfiles(spProfiles);
+        localStorage.setItem("vasrouse_profiles", JSON.stringify(spProfiles));
+      }
+
+      if (spHR && spHR.length > 0) {
+        const hrMap: Record<string, HRData> = {};
+        spHR.forEach(item => {
+          hrMap[item.id_perfil] = item;
+        });
+        setHrData(hrMap);
+        localStorage.setItem("vasrouse_hrData", JSON.stringify(hrMap));
+      }
+
+      if (spTasks && spTasks.length > 0) {
+        setTasks(spTasks);
+        localStorage.setItem("vasrouse_tasks", JSON.stringify(spTasks));
+      }
+
+      if (spNotifs && spNotifs.length > 0) {
+        setNotifications(spNotifs);
+        localStorage.setItem("vasrouse_notifs", JSON.stringify(spNotifs));
+      }
+
+      if (spReports && spReports.length > 0) {
+        setDailyReports(spReports);
+        localStorage.setItem("vasrouse_reports", JSON.stringify(spReports));
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Error fetching direct Supabase data:', err);
+      return false;
+    }
+  };
+
+  // Load and initialize data from Supabase or LocalStorage/mockData
   useEffect(() => {
-    const storedProfiles = localStorage.getItem("vasrouse_profiles");
-    const storedHR = localStorage.getItem("vasrouse_hrData");
-    const storedTasks = localStorage.getItem("vasrouse_tasks");
-    const storedNotifs = localStorage.getItem("vasrouse_notifs");
-    const storedReports = localStorage.getItem("vasrouse_reports");
-    const storedLoggedIn = localStorage.getItem("vasrouse_is_logged_in");
-    const storedRole = localStorage.getItem("vasrouse_current_role");
+    const initData = async () => {
+      const synced = await loadSupabaseData();
+      if (!synced) {
+        const storedProfiles = localStorage.getItem("vasrouse_profiles");
+        const storedHR = localStorage.getItem("vasrouse_hrData");
+        const storedTasks = localStorage.getItem("vasrouse_tasks");
+        const storedNotifs = localStorage.getItem("vasrouse_notifs");
+        const storedReports = localStorage.getItem("vasrouse_reports");
 
-    if (storedProfiles) setProfiles(JSON.parse(storedProfiles));
-    else {
-      setProfiles(initialProfiles);
-      localStorage.setItem("vasrouse_profiles", JSON.stringify(initialProfiles));
-    }
+        if (storedProfiles) setProfiles(JSON.parse(storedProfiles));
+        else {
+          setProfiles(initialProfiles);
+          localStorage.setItem("vasrouse_profiles", JSON.stringify(initialProfiles));
+        }
 
-    if (storedHR) setHrData(JSON.parse(storedHR));
-    else {
-      setHrData(initialHRData);
-      localStorage.setItem("vasrouse_hrData", JSON.stringify(initialHRData));
-    }
+        if (storedHR) setHrData(JSON.parse(storedHR));
+        else {
+          setHrData(initialHRData);
+          localStorage.setItem("vasrouse_hrData", JSON.stringify(initialHRData));
+        }
 
-    if (storedTasks) setTasks(JSON.parse(storedTasks));
-    else {
-      setTasks(initialTasks);
-      localStorage.setItem("vasrouse_tasks", JSON.stringify(initialTasks));
-    }
+        if (storedTasks) setTasks(JSON.parse(storedTasks));
+        else {
+          setTasks(initialTasks);
+          localStorage.setItem("vasrouse_tasks", JSON.stringify(initialTasks));
+        }
 
-    if (storedNotifs) setNotifications(JSON.parse(storedNotifs));
-    else {
-      setNotifications(initialNotifications);
-      localStorage.setItem("vasrouse_notifs", JSON.stringify(initialNotifications));
-    }
+        if (storedNotifs) setNotifications(JSON.parse(storedNotifs));
+        else {
+          setNotifications(initialNotifications);
+          localStorage.setItem("vasrouse_notifs", JSON.stringify(initialNotifications));
+        }
 
-    if (storedReports) setDailyReports(JSON.parse(storedReports));
-    else {
-      setDailyReports(initialDailyReports);
-      localStorage.setItem("vasrouse_reports", JSON.stringify(initialDailyReports));
-    }
+        if (storedReports) setDailyReports(JSON.parse(storedReports));
+        else {
+          setDailyReports(initialDailyReports);
+          localStorage.setItem("vasrouse_reports", JSON.stringify(initialDailyReports));
+        }
+      }
 
-    if (storedLoggedIn === "true") {
-      setIsLoggedIn(true);
-      setActiveView(localStorage.getItem("vasrouse_last_view") as ActiveViewType || 'dashboard');
-    }
-    
-    if (storedRole) {
-      setCurrentRole(storedRole as any);
-    }
+      const storedLoggedIn = localStorage.getItem("vasrouse_is_logged_in");
+      const storedRole = localStorage.getItem("vasrouse_current_role");
+
+      if (storedLoggedIn === "true") {
+        setIsLoggedIn(true);
+        setActiveView(localStorage.getItem("vasrouse_last_view") as ActiveViewType || 'dashboard');
+      }
+      
+      if (storedRole) {
+        setCurrentRole(storedRole as any);
+      }
+    };
+
+    initData();
   }, []);
+
 
   // Save states to LocalStorage on modifications
   const handleUpdateProfiles = (updated: Profile[]) => {
@@ -224,11 +296,13 @@ export default function App() {
   const handleUpdateSingleTask = (updatedTask: Task) => {
     const updated = tasks.map(t => t.id === updatedTask.id ? updatedTask : t);
     handleUpdateTasks(updated);
+    saveTaskToSupabase(updatedTask).catch(err => console.error("Error saving task to Supabase:", err));
   };
 
   const handleAddTask = (newTask: Task) => {
     const updated = [...tasks, newTask];
     handleUpdateTasks(updated);
+    saveTaskToSupabase(newTask).catch(err => console.error("Error saving new task to Supabase:", err));
   };
 
   // Mark all notifications read
@@ -427,6 +501,11 @@ export default function App() {
             hrData={hrData} 
             currentRole={currentRole} 
             onAddMember={handleAddMember} 
+            tasks={tasks}
+            onAddTask={handleAddTask}
+            onUpdateTask={handleUpdateSingleTask}
+            notifications={notifications}
+            onUpdateNotifications={handleUpdateNotifications}
           />
         )}
         
