@@ -243,3 +243,63 @@ export const saveNotificationToSupabase = async (notif: Notification, id_destina
   return true;
 };
 
+export const saveDailyReportToSupabase = async (report: DailyReport): Promise<boolean> => {
+  const client = getSupabaseClient();
+  if (!client) return false;
+
+  try {
+    const { data: insertedReport, error: repErr } = await client
+      .from('daily_reports')
+      .upsert({
+        id_usuario: report.id_usuario,
+        nome_usuario: report.nome_usuario,
+        avatar_usuario: report.avatar_usuario,
+        data: report.data
+      })
+      .select()
+      .single();
+
+    if (repErr || !insertedReport) {
+      console.error('Error saving daily report to Supabase:', repErr);
+      return false;
+    }
+
+    if (report.itens && report.itens.length > 0) {
+      const itemsToInsert = report.itens.map(item => ({
+        id_relatorio: insertedReport.id,
+        id_tarefa: item.id_tarefa,
+        titulo_tarefa: item.titulo_tarefa,
+        status: item.status,
+        observacoes: item.observacoes,
+        anexo: item.anexo
+      }));
+
+      const { error: itemErr } = await client
+        .from('daily_report_items')
+        .upsert(itemsToInsert);
+
+      if (itemErr) {
+        console.error('Error saving daily report items to Supabase:', itemErr);
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Error in saveDailyReportToSupabase:', err);
+    return false;
+  }
+};
+
+export const deleteTaskFromSupabase = async (taskId: string): Promise<boolean> => {
+  const client = getSupabaseClient();
+  if (!client) return false;
+
+  const { error } = await client.from('tasks').delete().eq('id', taskId);
+  if (error) {
+    console.error('Error deleting task from Supabase:', error);
+    return false;
+  }
+  return true;
+};
+
+

@@ -43,6 +43,10 @@ import {
   fetchHRDataFromSupabase, 
   fetchTasksFromSupabase, 
   saveTaskToSupabase, 
+  saveProfileToSupabase,
+  saveHRDataToSupabase,
+  saveDailyReportToSupabase,
+  deleteTaskFromSupabase,
   fetchNotificationsFromSupabase, 
   fetchDailyReportsFromSupabase 
 } from "./lib/supabase";
@@ -69,6 +73,11 @@ export default function App() {
   const [dailyReports, setDailyReports] = useState<DailyReport[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
+  // Selected active profile state
+  const [activeProfileId, setActiveProfileId] = useState<string>(() => {
+    return localStorage.getItem("vasrouse_active_profile_id") || "";
+  });
+
   // Load data directly from Supabase if configured, or fallback to LocalStorage/mockData
   const loadSupabaseData = async () => {
     const creds = getSupabaseCredentials();
@@ -85,12 +94,12 @@ export default function App() {
         fetchDailyReportsFromSupabase().catch(() => null)
       ]);
 
-      if (spProfiles && spProfiles.length > 0) {
+      if (spProfiles !== null) {
         setProfiles(spProfiles);
         localStorage.setItem("vasrouse_profiles", JSON.stringify(spProfiles));
       }
 
-      if (spHR && spHR.length > 0) {
+      if (spHR !== null) {
         const hrMap: Record<string, HRData> = {};
         spHR.forEach(item => {
           hrMap[item.id_perfil] = item;
@@ -99,17 +108,17 @@ export default function App() {
         localStorage.setItem("vasrouse_hrData", JSON.stringify(hrMap));
       }
 
-      if (spTasks && spTasks.length > 0) {
+      if (spTasks !== null) {
         setTasks(spTasks);
         localStorage.setItem("vasrouse_tasks", JSON.stringify(spTasks));
       }
 
-      if (spNotifs && spNotifs.length > 0) {
+      if (spNotifs !== null) {
         setNotifications(spNotifs);
         localStorage.setItem("vasrouse_notifs", JSON.stringify(spNotifs));
       }
 
-      if (spReports && spReports.length > 0) {
+      if (spReports !== null) {
         setDailyReports(spReports);
         localStorage.setItem("vasrouse_reports", JSON.stringify(spReports));
       }
@@ -246,11 +255,23 @@ export default function App() {
 
   const handleLoginSuccess = (email: string) => {
     setIsLoggedIn(true);
-    // Find matching profile by email or fallback to Ana Silva
-    const match = profiles.find(p => p.id === "ana-silva") || initialProfiles[0];
+    const userPrefix = email.split('@')[0].toLowerCase();
+    
+    // Find matching profile by email prefix, full email, or fallback to first available profile
+    const match = profiles.find(p => 
+      p.id.toLowerCase() === userPrefix || 
+      p.name.toLowerCase().includes(userPrefix) ||
+      p.id.toLowerCase() === email.toLowerCase()
+    ) || profiles[0] || initialProfiles[0];
+
+    if (match) {
+      setActiveProfileId(match.id);
+      localStorage.setItem("vasrouse_active_profile_id", match.id);
+      setCurrentRole(match.nivel_acesso);
+      localStorage.setItem("vasrouse_current_role", match.nivel_acesso);
+    }
+
     localStorage.setItem("vasrouse_is_logged_in", "true");
-    localStorage.setItem("vasrouse_current_role", match.nivel_acesso);
-    setCurrentRole(match.nivel_acesso);
     setActiveView('dashboard');
     localStorage.setItem("vasrouse_last_view", 'dashboard');
   };
@@ -271,24 +292,29 @@ export default function App() {
     setCurrentRole(role);
     localStorage.setItem("vasrouse_current_role", role);
     
-    // Update Ana Silva's role dynamically in profiles to test accordion RBAC blocks instantly!
-    const updatedProfiles = profiles.map(p => {
-      if (p.id === "ana-silva") {
-        return { ...p, nivel_acesso: role };
-      }
-      return p;
-    });
-    handleUpdateProfiles(updatedProfiles);
+    if (activeProfile) {
+      const updatedProfiles = profiles.map(p => {
+        if (p.id === activeProfile.id) {
+          const updated = { ...p, nivel_acesso: role };
+          saveProfileToSupabase(updated).catch(err => console.error("Error saving profile to Supabase:", err));
+          return updated;
+        }
+        return p;
+      });
+      handleUpdateProfiles(updatedProfiles);
+    }
   };
 
   // Add a brand new member
   const handleAddMember = (newProfile: Profile, newHR?: HRData) => {
     const updatedProfiles = [...profiles, newProfile];
     handleUpdateProfiles(updatedProfiles);
+    saveProfileToSupabase(newProfile).catch(err => console.error("Error saving profile to Supabase:", err));
 
     if (newHR) {
       const updatedHR = { ...hrData, [newProfile.id]: newHR };
       handleUpdateHRData(updatedHR);
+      saveHRDataToSupabase(newHR).catch(err => console.error("Error saving HR data to Supabase:", err));
     }
   };
 
@@ -325,7 +351,11 @@ export default function App() {
 
   // Calculate stats
   const unreadNotifCount = notifications.filter(n => !n.lida).length;
-  const activeProfile = profiles.find(p => p.id === "ana-silva") || initialProfiles[0];
+  const activeProfile = 
+    profiles.find(p => p.id === activeProfileId) || 
+    profiles.find(p => p.id === "ana-silva") || 
+    profiles[0] || 
+    initialProfiles[0];
 
   if (!isLoggedIn || activeView === 'login') {
     return <LoginView onLoginSuccess={handleLoginSuccess} />;
