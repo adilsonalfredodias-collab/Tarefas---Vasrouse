@@ -39,7 +39,7 @@ interface AISuggestion {
 }
 
 export default function AnalyticsView({ profiles, tasks, activeProfile }: AnalyticsViewProps) {
-  const [selectedMemberId, setSelectedMemberId] = useState<string>(activeProfile.id);
+  const [selectedMemberId, setSelectedMemberId] = useState<string>(activeProfile?.id || "");
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
   const [loadingAI, setLoadingAI] = useState(false);
   const [aiSource, setAiSource] = useState<string>("");
@@ -84,8 +84,8 @@ export default function AnalyticsView({ profiles, tasks, activeProfile }: Analyt
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          role: member.funcao,
-          name: member.name,
+          role: member?.funcao || "Colaborador",
+          name: member?.name || "Membro",
           tasks: memberTasks,
           completedCount: completedCount + 3 // add baseline for visual consistency
         })

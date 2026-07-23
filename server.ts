@@ -64,7 +64,7 @@ Forneça um JSON contendo um array "suggestions" com exatamente 3 sugestões est
 Responda APENAS com o JSON válido, sem markdown extra.`;
 
     const aiResponse = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -82,7 +82,7 @@ Responda APENAS com o JSON válido, sem markdown extra.`;
       throw new Error("Empty response from Gemini");
     }
   } catch (error: any) {
-    console.error("Gemini Error:", error);
+    console.error("Gemini API notice:", error?.message || error);
     // Fallback to simulated data if there is an API or parse failure
     const { role, name, tasks, completedCount } = req.body;
     const backupSuggestions = getBackupSuggestions(role, name, tasks, completedCount);

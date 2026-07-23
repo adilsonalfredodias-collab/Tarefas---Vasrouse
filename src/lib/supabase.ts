@@ -227,7 +227,7 @@ export const saveNotificationToSupabase = async (notif: Notification, id_destina
 
   const { error } = await client.from('notifications').upsert({
     id: notif.id.startsWith('notif-') ? undefined : notif.id,
-    id_destinatario: id_destinatario || 'ana-silva',
+    id_destinatario: id_destinatario || 'system',
     tipo: notif.tipo,
     subtipo: notif.subtipo,
     titulo: notif.titulo,

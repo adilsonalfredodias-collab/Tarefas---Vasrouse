@@ -141,34 +141,43 @@ export default function App() {
         const storedNotifs = localStorage.getItem("vasrouse_notifs");
         const storedReports = localStorage.getItem("vasrouse_reports");
 
-        if (storedProfiles) setProfiles(JSON.parse(storedProfiles));
-        else {
-          setProfiles(initialProfiles);
-          localStorage.setItem("vasrouse_profiles", JSON.stringify(initialProfiles));
+        if (storedProfiles) {
+          const parsed: Profile[] = JSON.parse(storedProfiles);
+          const cleanProfiles = parsed.filter(p => !['ana-silva', 'carlos-mendes', 'sofia-costa', 'alex-mercer'].includes(p.id));
+          setProfiles(cleanProfiles);
         }
-
-        if (storedHR) setHrData(JSON.parse(storedHR));
-        else {
-          setHrData(initialHRData);
-          localStorage.setItem("vasrouse_hrData", JSON.stringify(initialHRData));
+        if (storedHR) {
+          const parsedHR = JSON.parse(storedHR);
+          delete parsedHR['ana-silva'];
+          delete parsedHR['carlos-mendes'];
+          delete parsedHR['sofia-costa'];
+          delete parsedHR['alex-mercer'];
+          setHrData(parsedHR);
         }
-
-        if (storedTasks) setTasks(JSON.parse(storedTasks));
-        else {
-          setTasks(initialTasks);
-          localStorage.setItem("vasrouse_tasks", JSON.stringify(initialTasks));
+        if (storedTasks) {
+          const parsedTasks: Task[] = JSON.parse(storedTasks);
+          const cleanTasks = parsedTasks.filter(t => !['task-rebranding', 'task-mobile', 'task-checkout'].includes(t.id));
+          setTasks(cleanTasks);
         }
-
-        if (storedNotifs) setNotifications(JSON.parse(storedNotifs));
-        else {
-          setNotifications(initialNotifications);
-          localStorage.setItem("vasrouse_notifs", JSON.stringify(initialNotifications));
+        if (storedNotifs) {
+          const parsedNotifs: Notification[] = JSON.parse(storedNotifs);
+          const cleanNotifs = parsedNotifs.filter(n => !['notif-1', 'notif-2', 'notif-3', 'notif-4'].includes(n.id));
+          setNotifications(cleanNotifs);
         }
-
-        if (storedReports) setDailyReports(JSON.parse(storedReports));
-        else {
-          setDailyReports(initialDailyReports);
-          localStorage.setItem("vasrouse_reports", JSON.stringify(initialDailyReports));
+        if (storedReports) {
+          const parsedReports: DailyReport[] = JSON.parse(storedReports);
+          const cleanReports = parsedReports.filter(r => !['report-1', 'report-2'].includes(r.id));
+          setDailyReports(cleanReports);
+        }
+      } else {
+        // Clear cached local storage mock profile keys to keep live database state pure
+        const storedProfiles = localStorage.getItem("vasrouse_profiles");
+        if (storedProfiles && storedProfiles.includes("ana-silva")) {
+          localStorage.removeItem("vasrouse_profiles");
+          localStorage.removeItem("vasrouse_hrData");
+          localStorage.removeItem("vasrouse_tasks");
+          localStorage.removeItem("vasrouse_notifs");
+          localStorage.removeItem("vasrouse_reports");
         }
       }
 
@@ -253,16 +262,40 @@ export default function App() {
     });
   };
 
-  const handleLoginSuccess = (email: string) => {
+  const handleLoginSuccess = async (email: string) => {
     setIsLoggedIn(true);
     const userPrefix = email.split('@')[0].toLowerCase();
-    
-    // Find matching profile by email prefix, full email, or fallback to first available profile
-    const match = profiles.find(p => 
+    const formattedName = userPrefix
+      .split(/[\._-]/)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+
+    // Find matching profile by email prefix, full email or name
+    let match = profiles.find(p => 
       p.id.toLowerCase() === userPrefix || 
       p.name.toLowerCase().includes(userPrefix) ||
       p.id.toLowerCase() === email.toLowerCase()
-    ) || profiles[0] || initialProfiles[0];
+    );
+
+    // If no profile exists for this email user, register a new real profile in state & Supabase
+    if (!match) {
+      const isFirstUser = profiles.length === 0;
+      match = {
+        id: userPrefix || `user-${Date.now()}`,
+        name: formattedName || email,
+        funcao: isFirstUser ? "Administrador / Director" : "Colaborador",
+        nivel_acesso: isFirstUser ? "admin" : "member",
+        aniversario: "Não especificado",
+        residencia: "Angola",
+        horario: "08:00 - 17:00",
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(formattedName || email)}&background=5A52A3&color=fff`
+      };
+
+      const updatedProfiles = [...profiles, match];
+      setProfiles(updatedProfiles);
+      localStorage.setItem("vasrouse_profiles", JSON.stringify(updatedProfiles));
+      await saveProfileToSupabase(match).catch(err => console.error("Error saving profile to Supabase:", err));
+    }
 
     if (match) {
       setActiveProfileId(match.id);
@@ -351,17 +384,28 @@ export default function App() {
 
   // Calculate stats
   const unreadNotifCount = notifications.filter(n => !n.lida).length;
+
+  const defaultProfile: Profile = {
+    id: activeProfileId || "user",
+    name: "Utilizador",
+    funcao: "Membro",
+    nivel_acesso: currentRole || "member",
+    aniversario: "Não especificado",
+    residencia: "Angola",
+    horario: "08:00 - 17:00",
+    avatar: "https://ui-avatars.com/api/?name=Utilizador&background=5A52A3&color=fff"
+  };
+
   const activeProfile = 
     profiles.find(p => p.id === activeProfileId) || 
-    profiles.find(p => p.id === "ana-silva") || 
     profiles[0] || 
-    initialProfiles[0];
+    defaultProfile;
 
   if (!isLoggedIn || activeView === 'login') {
     return <LoginView onLoginSuccess={handleLoginSuccess} />;
   }
 
-  const activeTask = tasks.find(t => t.id === selectedTaskId) || tasks[0];
+  const activeTask = tasks.find(t => t.id === selectedTaskId) || tasks[0] || null;
 
   return (
     <div id="app-workspace-canvas" className={`min-h-screen bg-background text-on-background flex flex-col md:flex-row pb-24 md:pb-0 pt-16 md:pt-0 ${!isDarkMode ? 'light-theme' : ''}`}>
@@ -576,8 +620,11 @@ export default function App() {
             isDarkMode={isDarkMode}
             onToggleDarkMode={handleToggleDarkMode}
             onUpdateProfile={(name, title, aniversario, residencia, horario, avatar) => {
-              const updated = profiles.map(p => p.id === "ana-silva" ? { ...p, name, funcao: title, aniversario, residencia, horario, avatar } : p);
+              if (!activeProfile) return;
+              const updated = profiles.map(p => p.id === activeProfile.id ? { ...p, name, funcao: title, aniversario, residencia, horario, avatar } : p);
               handleUpdateProfiles(updated);
+              const updatedProf = updated.find(p => p.id === activeProfile.id);
+              if (updatedProf) saveProfileToSupabase(updatedProf).catch(err => console.error("Error updating profile in Supabase:", err));
             }}
           />
         )}

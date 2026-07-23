@@ -21,6 +21,21 @@ export default function TaskDetailsView({ task, profiles, activeProfile, onBack,
   const [newAttName, setNewAttName] = useState("");
   const [newAttType, setNewAttType] = useState<'image' | 'file'>("file");
 
+  if (!task) {
+    return (
+      <div className="p-12 text-center space-y-4 bg-[#16161F] border border-white/5 rounded-2xl max-w-lg mx-auto mt-10">
+        <h3 className="text-lg font-bold text-white">Nenhuma tarefa selecionada</h3>
+        <p className="text-xs text-on-surface-variant">Crie ou selecione uma tarefa no calendário para visualizar os detalhes.</p>
+        <button 
+          onClick={onBack}
+          className="px-5 py-2.5 bg-[#5A52A3] hover:bg-[#4E4693] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all"
+        >
+          Voltar ao Calendário
+        </button>
+      </div>
+    );
+  }
+
   // Format ISO string date beautifully
   const formatTaskDate = (isoString: string) => {
     try {
@@ -37,9 +52,9 @@ export default function TaskDetailsView({ task, profiles, activeProfile, onBack,
 
     const newComment: Comment = {
       id: "comm-" + Date.now(),
-      id_autor: activeProfile.id,
-      nome_autor: activeProfile.name,
-      avatar_autor: activeProfile.avatar,
+      id_autor: activeProfile?.id || "user",
+      nome_autor: activeProfile?.name || "Usuário",
+      avatar_autor: activeProfile?.avatar || "",
       data: "Agora mesmo",
       texto: commentText
     };

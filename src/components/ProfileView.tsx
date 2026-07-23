@@ -78,13 +78,24 @@ export default function ProfileView({
     }, 3500);
   };
 
+  const profile = activeProfile || {
+    id: "user",
+    name: "Utilizador",
+    funcao: "Colaborador",
+    nivel_acesso: currentRole,
+    aniversario: "Não especificado",
+    residencia: "Angola",
+    horario: "08:00 - 17:00",
+    avatar: "https://ui-avatars.com/api/?name=Utilizador&background=5A52A3&color=fff"
+  };
+
   // 1. Account Settings States
-  const [editName, setEditName] = useState(activeProfile.name);
-  const [editTitle, setEditTitle] = useState(activeProfile.funcao);
-  const [editAniversario, setEditAniversario] = useState(activeProfile.aniversario || "1994-04-12");
-  const [editResidencia, setEditResidencia] = useState(activeProfile.residencia || "Luanda, Angola");
-  const [editHorario, setEditHorario] = useState(activeProfile.horario || "08:00 - 17:00");
-  const [editAvatar, setEditAvatar] = useState(activeProfile.avatar);
+  const [editName, setEditName] = useState(profile.name || "Utilizador");
+  const [editTitle, setEditTitle] = useState(profile.funcao || "Colaborador");
+  const [editAniversario, setEditAniversario] = useState(profile.aniversario || "1994-04-12");
+  const [editResidencia, setEditResidencia] = useState(profile.residencia || "Luanda, Angola");
+  const [editHorario, setEditHorario] = useState(profile.horario || "08:00 - 17:00");
+  const [editAvatar, setEditAvatar] = useState(profile.avatar || "");
 
   // 2. Notification Preferences States
   const [notifPush, setNotifPush] = useState(true);
@@ -195,9 +206,9 @@ export default function ProfileView({
           onClick={() => {
             setActiveTab('none');
             // Reset temp values
-            setEditName(activeProfile.name);
-            setEditTitle(activeProfile.funcao);
-            setEditAvatar(activeProfile.avatar);
+            setEditName(profile.name);
+            setEditTitle(profile.funcao);
+            setEditAvatar(profile.avatar);
           }}
           className="inline-flex items-center gap-2 text-xs font-semibold text-on-surface-variant hover:text-white transition-colors cursor-pointer bg-[#16161F]/60 border border-white/5 py-1.5 px-3 rounded-lg hover:bg-[#16161F] select-none"
         >
@@ -215,8 +226,8 @@ export default function ProfileView({
             {/* Large Avatar container */}
             <div className="relative w-32 h-32 md:w-36 md:h-36 rounded-full border border-white/10 overflow-hidden shadow-lg bg-[#16161F]/80 flex items-center justify-center p-1 group">
               <img 
-                src={activeProfile.avatar} 
-                alt={activeProfile.name} 
+                src={profile.avatar} 
+                alt={profile.name} 
                 className="w-full h-full rounded-full object-cover" 
               />
               <button 
@@ -229,8 +240,8 @@ export default function ProfileView({
             </div>
 
             <div className="text-center">
-              <h1 className="font-bold text-white text-2xl md:text-3xl mb-1">{activeProfile.name}</h1>
-              <p className="text-sm text-on-surface-variant">{activeProfile.funcao}</p>
+              <h1 className="font-bold text-white text-2xl md:text-3xl mb-1">{profile.name}</h1>
+              <p className="text-sm text-on-surface-variant">{profile.funcao}</p>
               
               <div className="mt-2.5 flex justify-center gap-2">
                 <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary-container/20 text-primary border border-primary/20 text-xs font-semibold gap-1.5 shadow-sm">
@@ -254,21 +265,21 @@ export default function ProfileView({
               <MapPin size={16} className="text-[#c6bfff] shrink-0" />
               <div>
                 <span className="text-[10px] text-on-surface-variant block">Residência</span>
-                <span className="text-white font-semibold truncate">{activeProfile.residencia || "Luanda, Angola"}</span>
+                <span className="text-white font-semibold truncate">{profile.residencia || "Luanda, Angola"}</span>
               </div>
             </div>
             <div className="flex items-center gap-3 bg-[#0D0D11]/40 p-3 rounded-xl border border-white/5">
               <Watch size={16} className="text-[#c6bfff] shrink-0" />
               <div>
                 <span className="text-[10px] text-on-surface-variant block">Horário de Trabalho</span>
-                <span className="text-white font-semibold truncate">{activeProfile.horario || "08:00 - 17:00"}</span>
+                <span className="text-white font-semibold truncate">{profile.horario || "08:00 - 17:00"}</span>
               </div>
             </div>
             <div className="flex items-center gap-3 bg-[#0D0D11]/40 p-3 rounded-xl border border-white/5">
               <Bell size={16} className="text-[#c6bfff] shrink-0" />
               <div>
                 <span className="text-[10px] text-on-surface-variant block">Aniversário</span>
-                <span className="text-white font-semibold truncate">{activeProfile.aniversario || "12 de Abril"}</span>
+                <span className="text-white font-semibold truncate">{profile.aniversario || "12 de Abril"}</span>
               </div>
             </div>
           </section>
