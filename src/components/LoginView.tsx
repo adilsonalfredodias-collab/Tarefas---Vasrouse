@@ -4,7 +4,9 @@
  */
 
 import React, { useState } from "react";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle, Loader2 } from "lucide-react";
+import { AUTHORIZED_USERS } from "../data/authorizedUsers";
+import { getSupabaseClient } from "../lib/supabase";
 
 interface LoginViewProps {
   onLoginSuccess: (email: string) => void;
@@ -18,12 +20,13 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   const [recoveryEmail, setRecoveryEmail] = useState("");
   const [recoverySuccess, setRecoverySuccess] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!email) {
+    if (!email.trim()) {
       setError("Por favor, introduza o seu e-mail.");
       return;
     }
@@ -32,14 +35,39 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
       return;
     }
 
-    // Strict client validation for company email domains if needed, or allow standard
-    if (!email.includes("@")) {
-      setError("Formato de e-mail inválido.");
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Verify authorized email list
+    const isAuthorized = AUTHORIZED_USERS.some(u => u.email.toLowerCase() === cleanEmail);
+    if (!isAuthorized) {
+      setError("Acesso negado. O e-mail " + cleanEmail + " não possui permissão para aceder à plataforma.");
       return;
     }
 
+    // Attempt Supabase authentication if client is configured
+    const client = getSupabaseClient();
+    if (client) {
+      setLoading(true);
+      try {
+        const { error: authErr } = await client.auth.signInWithPassword({
+          email: cleanEmail,
+          password: password,
+        });
+
+        if (authErr) {
+          setError("Falha na autenticação: " + authErr.message);
+          setLoading(false);
+          return;
+        }
+      } catch (err: any) {
+        console.warn("Aviso de ligação Supabase Auth:", err?.message || err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
     // Execute session initialization
-    onLoginSuccess(email);
+    onLoginSuccess(cleanEmail);
   };
 
   const handleRecovery = (e: React.FormEvent) => {
@@ -151,10 +179,20 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
             <button
               id="btn-login-submit"
               type="submit"
-              className="w-full h-12 mt-6 bg-[#FCD15A] hover:bg-[#ebc24c] text-[#0D0D11] text-sm font-semibold rounded-lg shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              disabled={loading}
+              className="w-full h-12 mt-6 bg-[#FCD15A] hover:bg-[#ebc24c] disabled:opacity-60 text-[#0D0D11] text-sm font-semibold rounded-lg shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>Entrar no Workspace</span>
-              <ArrowRight size={18} />
+              {loading ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  <span>A autenticar...</span>
+                </>
+              ) : (
+                <>
+                  <span>Entrar no Workspace</span>
+                  <ArrowRight size={18} />
+                </>
+              )}
             </button>
           </form>
         ) : (

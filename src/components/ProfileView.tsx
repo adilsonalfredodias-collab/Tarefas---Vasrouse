@@ -284,39 +284,30 @@ export default function ProfileView({
             </div>
           </section>
 
-          {/* RBAC Tester Section - Interactive Role Switcher */}
-          <section className="bg-surface-container/60 border border-secondary/20 rounded-xl p-5 space-y-4">
+          {/* Read-Only Access Level Section */}
+          <section className="bg-surface-container/60 border border-white/10 rounded-xl p-5 space-y-3">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-secondary/15 rounded-lg text-secondary border border-secondary/25">
-                <ShieldAlert size={18} />
+              <div className="p-2 bg-[#5A52A3]/20 rounded-lg text-[#c6bfff] border border-[#5A52A3]/30">
+                <ShieldCheck size={18} />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Simulador de Permissões (RBAC Tester)</h3>
-                <p className="text-xs text-on-surface-variant">Altere o nível de privilégio do seu utilizador para testar o comportamento do Workspace OS.</p>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Nível de Acesso Configurado</h3>
+                <p className="text-xs text-on-surface-variant">Definido de forma estrita pela autenticação corporativa Vasrouse Creative.</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2.5 pt-2">
-              {(['admin', 'leader', 'member'] as const).map(role => {
-                const isSelected = currentRole === role;
-                const label = role === 'admin' ? "Admin (RH)" : role === 'leader' ? "Leader (Equipa)" : "Member";
-                const desc = role === 'admin' ? "Acesso total" : role === 'leader' ? "Acesso médio" : "Acesso básico";
-                
-                return (
-                  <button
-                    key={role}
-                    onClick={() => onRoleChange(role)}
-                    className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer h-20 ${
-                      isSelected 
-                        ? "bg-primary-container/20 border-primary-container text-white shadow-lg" 
-                        : "bg-[#16161F]/40 border-white/5 text-on-surface-variant hover:border-white/10"
-                    }`}
-                  >
-                    <span className="text-xs font-bold block">{label}</span>
-                    <span className="text-[10px] opacity-75">{desc}</span>
-                  </button>
-                );
-              })}
+            <div className="p-3.5 bg-[#0D0D11]/60 border border-white/5 rounded-xl flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-white block capitalize">
+                  {currentRole === 'admin' ? 'Administrador (Acesso Total)' : currentRole === 'leader' ? 'Líder / Coordenador' : 'Membro da Equipa'}
+                </span>
+                <span className="text-[11px] text-on-surface-variant">
+                  {currentRole === 'admin' ? 'Permissões avançadas de gestão e RH' : currentRole === 'leader' ? 'Supervisão e atribuição de tarefas' : 'Acesso ao workspace individual'}
+                </span>
+              </div>
+              <span className="px-3 py-1 bg-[#5A52A3]/30 text-[#c6bfff] border border-[#5A52A3]/40 text-xs font-bold rounded-lg uppercase tracking-wider shrink-0">
+                {currentRole}
+              </span>
             </div>
           </section>
 

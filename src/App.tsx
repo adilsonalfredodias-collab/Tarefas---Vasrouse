@@ -51,6 +51,8 @@ import {
   fetchDailyReportsFromSupabase 
 } from "./lib/supabase";
 
+import { AUTHORIZED_USERS, defaultAuthorizedProfiles, defaultAuthorizedTasks } from "./data/authorizedUsers";
+
 type ActiveViewType = 'login' | 'dashboard' | 'team' | 'calendar' | 'notifications' | 'profile' | 'task-details' | 'reports';
 
 
@@ -66,16 +68,16 @@ export default function App() {
   });
   
   // Data States
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>(defaultAuthorizedProfiles);
   const [hrData, setHrData] = useState<Record<string, HRData>>({});
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<Task[]>(defaultAuthorizedTasks);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [dailyReports, setDailyReports] = useState<DailyReport[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   // Selected active profile state
   const [activeProfileId, setActiveProfileId] = useState<string>(() => {
-    return localStorage.getItem("vasrouse_active_profile_id") || "";
+    return localStorage.getItem("vasrouse_active_profile_id") || "adilsondias.admin";
   });
 
   // Load data directly from Supabase if configured, or fallback to LocalStorage/mockData
@@ -94,7 +96,7 @@ export default function App() {
         fetchDailyReportsFromSupabase().catch(() => null)
       ]);
 
-      if (spProfiles !== null) {
+      if (spProfiles && spProfiles.length > 0) {
         setProfiles(spProfiles);
         localStorage.setItem("vasrouse_profiles", JSON.stringify(spProfiles));
       }
@@ -108,7 +110,7 @@ export default function App() {
         localStorage.setItem("vasrouse_hrData", JSON.stringify(hrMap));
       }
 
-      if (spTasks !== null) {
+      if (spTasks && spTasks.length > 0) {
         setTasks(spTasks);
         localStorage.setItem("vasrouse_tasks", JSON.stringify(spTasks));
       }
@@ -144,7 +146,7 @@ export default function App() {
         if (storedProfiles) {
           const parsed: Profile[] = JSON.parse(storedProfiles);
           const cleanProfiles = parsed.filter(p => !['ana-silva', 'carlos-mendes', 'sofia-costa', 'alex-mercer'].includes(p.id));
-          setProfiles(cleanProfiles);
+          if (cleanProfiles.length > 0) setProfiles(cleanProfiles);
         }
         if (storedHR) {
           const parsedHR = JSON.parse(storedHR);
@@ -157,7 +159,7 @@ export default function App() {
         if (storedTasks) {
           const parsedTasks: Task[] = JSON.parse(storedTasks);
           const cleanTasks = parsedTasks.filter(t => !['task-rebranding', 'task-mobile', 'task-checkout'].includes(t.id));
-          setTasks(cleanTasks);
+          if (cleanTasks.length > 0) setTasks(cleanTasks);
         }
         if (storedNotifs) {
           const parsedNotifs: Notification[] = JSON.parse(storedNotifs);
@@ -169,28 +171,22 @@ export default function App() {
           const cleanReports = parsedReports.filter(r => !['report-1', 'report-2'].includes(r.id));
           setDailyReports(cleanReports);
         }
-      } else {
-        // Clear cached local storage mock profile keys to keep live database state pure
-        const storedProfiles = localStorage.getItem("vasrouse_profiles");
-        if (storedProfiles && storedProfiles.includes("ana-silva")) {
-          localStorage.removeItem("vasrouse_profiles");
-          localStorage.removeItem("vasrouse_hrData");
-          localStorage.removeItem("vasrouse_tasks");
-          localStorage.removeItem("vasrouse_notifs");
-          localStorage.removeItem("vasrouse_reports");
-        }
       }
 
       const storedLoggedIn = localStorage.getItem("vasrouse_is_logged_in");
-      const storedRole = localStorage.getItem("vasrouse_current_role");
+      const storedActiveId = localStorage.getItem("vasrouse_active_profile_id");
 
       if (storedLoggedIn === "true") {
         setIsLoggedIn(true);
         setActiveView(localStorage.getItem("vasrouse_last_view") as ActiveViewType || 'dashboard');
-      }
-      
-      if (storedRole) {
-        setCurrentRole(storedRole as any);
+        
+        if (storedActiveId) {
+          const authUser = AUTHORIZED_USERS.find(u => u.id === storedActiveId);
+          if (authUser) {
+            setCurrentRole(authUser.nivel_acesso);
+            setActiveProfileId(authUser.id);
+          }
+        }
       }
     };
 
@@ -264,45 +260,41 @@ export default function App() {
 
   const handleLoginSuccess = async (email: string) => {
     setIsLoggedIn(true);
-    const userPrefix = email.split('@')[0].toLowerCase();
-    const formattedName = userPrefix
-      .split(/[\._-]/)
-      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(' ');
+    const cleanEmail = email.trim().toLowerCase();
 
-    // Find matching profile by email prefix, full email or name
-    let match = profiles.find(p => 
-      p.id.toLowerCase() === userPrefix || 
-      p.name.toLowerCase().includes(userPrefix) ||
-      p.id.toLowerCase() === email.toLowerCase()
-    );
+    // Match exact authorized user
+    const authorized = AUTHORIZED_USERS.find(u => u.email.toLowerCase() === cleanEmail) || AUTHORIZED_USERS[0];
 
-    // If no profile exists for this email user, register a new real profile in state & Supabase
-    if (!match) {
-      const isFirstUser = profiles.length === 0;
-      match = {
-        id: userPrefix || `user-${Date.now()}`,
-        name: formattedName || email,
-        funcao: isFirstUser ? "Administrador / Director" : "Colaborador",
-        nivel_acesso: isFirstUser ? "admin" : "member",
-        aniversario: "Não especificado",
-        residencia: "Angola",
-        horario: "08:00 - 17:00",
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(formattedName || email)}&background=5A52A3&color=fff`
-      };
+    // Ensure profile in state has official name, funcao, and nivel_acesso
+    const profileToSync: Profile = {
+      id: authorized.id,
+      name: authorized.name,
+      funcao: authorized.funcao,
+      nivel_acesso: authorized.nivel_acesso,
+      aniversario: authorized.aniversario,
+      residencia: authorized.residencia,
+      horario: authorized.horario,
+      avatar: authorized.avatar
+    };
 
-      const updatedProfiles = [...profiles, match];
-      setProfiles(updatedProfiles);
-      localStorage.setItem("vasrouse_profiles", JSON.stringify(updatedProfiles));
-      await saveProfileToSupabase(match).catch(err => console.error("Error saving profile to Supabase:", err));
+    let updatedProfiles = [...profiles];
+    const existingIndex = updatedProfiles.findIndex(p => p.id === authorized.id);
+    if (existingIndex >= 0) {
+      updatedProfiles[existingIndex] = profileToSync;
+    } else {
+      updatedProfiles.push(profileToSync);
     }
 
-    if (match) {
-      setActiveProfileId(match.id);
-      localStorage.setItem("vasrouse_active_profile_id", match.id);
-      setCurrentRole(match.nivel_acesso);
-      localStorage.setItem("vasrouse_current_role", match.nivel_acesso);
-    }
+    setProfiles(updatedProfiles);
+    localStorage.setItem("vasrouse_profiles", JSON.stringify(updatedProfiles));
+    saveProfileToSupabase(profileToSync).catch(err => console.error("Error saving profile to Supabase:", err));
+
+    // Lock active profile and access level strictly to authorized configuration
+    setActiveProfileId(authorized.id);
+    localStorage.setItem("vasrouse_active_profile_id", authorized.id);
+
+    setCurrentRole(authorized.nivel_acesso);
+    localStorage.setItem("vasrouse_current_role", authorized.nivel_acesso);
 
     localStorage.setItem("vasrouse_is_logged_in", "true");
     setActiveView('dashboard');
@@ -322,20 +314,12 @@ export default function App() {
   };
 
   const handleRoleChange = (role: 'admin' | 'leader' | 'member') => {
-    setCurrentRole(role);
-    localStorage.setItem("vasrouse_current_role", role);
-    
-    if (activeProfile) {
-      const updatedProfiles = profiles.map(p => {
-        if (p.id === activeProfile.id) {
-          const updated = { ...p, nivel_acesso: role };
-          saveProfileToSupabase(updated).catch(err => console.error("Error saving profile to Supabase:", err));
-          return updated;
-        }
-        return p;
-      });
-      handleUpdateProfiles(updatedProfiles);
-    }
+    // Role level is locked to authorized configuration for current active user
+    const currentAuthUser = AUTHORIZED_USERS.find(u => u.id === activeProfileId);
+    const enforcedRole = currentAuthUser ? currentAuthUser.nivel_acesso : role;
+
+    setCurrentRole(enforcedRole);
+    localStorage.setItem("vasrouse_current_role", enforcedRole);
   };
 
   // Add a brand new member
