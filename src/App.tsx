@@ -181,21 +181,6 @@ export default function App() {
         }
       }
 
-      const storedLoggedIn = localStorage.getItem("vasrouse_is_logged_in");
-      const storedActiveId = localStorage.getItem("vasrouse_active_profile_id");
-
-      if (storedLoggedIn === "true") {
-        setIsLoggedIn(true);
-        setActiveView(localStorage.getItem("vasrouse_last_view") as ActiveViewType || 'dashboard');
-        
-        if (storedActiveId) {
-          const authUser = AUTHORIZED_USERS.find(u => u.id === storedActiveId);
-          if (authUser) {
-            setCurrentRole(authUser.nivel_acesso);
-            setActiveProfileId(authUser.id);
-          }
-        }
-      }
     };
 
     initData();
