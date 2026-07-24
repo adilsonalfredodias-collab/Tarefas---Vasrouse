@@ -63,15 +63,25 @@ Forneça um JSON contendo um array "suggestions" com exatamente 3 sugestões est
 
 Responda APENAS com o JSON válido, sem markdown extra.`;
 
-    const aiResponse = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      },
-    });
+    let aiResponse;
+    try {
+      aiResponse = await ai.models.generateContent({
+        model: "gemini-3.6-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+        },
+      });
+    } catch (aiErr: any) {
+      console.warn("Gemini API call failed, falling back to smart local suggestions:", aiErr?.message || aiErr);
+      const backupSuggestions = getBackupSuggestions(role, name, tasks, completedCount);
+      return res.json({
+        source: "fallback",
+        suggestions: backupSuggestions
+      });
+    }
 
-    const text = aiResponse.text;
+    const text = aiResponse?.text;
     if (text) {
       const parsed = JSON.parse(text);
       return res.json({
@@ -82,7 +92,7 @@ Responda APENAS com o JSON válido, sem markdown extra.`;
       throw new Error("Empty response from Gemini");
     }
   } catch (error: any) {
-    console.error("Gemini API notice:", error?.message || error);
+    console.warn("Using smart fallback suggestions due to Gemini API rate limit or error:", error?.message || error);
     // Fallback to simulated data if there is an API or parse failure
     const { role, name, tasks, completedCount } = req.body;
     const backupSuggestions = getBackupSuggestions(role, name, tasks, completedCount);
@@ -95,6 +105,26 @@ Responda APENAS com o JSON válido, sem markdown extra.`;
 
 // Helper for high-quality fallback/backup suggestions
 function getBackupSuggestions(role: string, name: string, tasks: any[], completedCount: number) {
+  if (!tasks || tasks.length === 0) {
+    return [
+      {
+        category: "Início de Trabalho",
+        title: "Registo de Tarefas",
+        description: `Olá ${name}! O seu Workspace está configurado a partir do zero. Crie as suas primeiras tarefas no Calendário para iniciar o acompanhamento.`
+      },
+      {
+        category: "Organização",
+        title: "Atribuição de Responsabilidades",
+        description: "Adicione prazos e etapas aos seus projetos para gerar métricas e estatísticas de produtividade em tempo real."
+      },
+      {
+        category: "Relatórios",
+        title: "Acompanhamento Diário",
+        description: "Utilize a secção de Relatórios Diários para registar o progresso do trabalho e manter a equipa alinhada."
+      }
+    ];
+  }
+
   const isDev = role?.toLowerCase().includes("dev") || role?.toLowerCase().includes("engineer");
   const isDesigner = role?.toLowerCase().includes("design") || role?.toLowerCase().includes("art");
   const isManager = role?.toLowerCase().includes("manager") || role?.toLowerCase().includes("mgr") || role?.toLowerCase().includes("diretor");
@@ -105,65 +135,65 @@ function getBackupSuggestions(role: string, name: string, tasks: any[], complete
     list.push({
       category: "Prioridade",
       title: "Consolidação de Código",
-      description: "Foque em fechar as pull requests pendentes antes de iniciar novos blocos de código para evitar desvio de prazo nos tokens visuais."
+      description: "Foque em concluir as tarefas de desenvolvimento em aberto antes de iniciar novos blocos de código."
     });
     list.push({
       category: "Foco",
-      title: "Blocos Pomodoro de 50 min",
-      description: "Seu cronograma atual tem tarefas de alta complexidade. Use foco ininterrupto com pausas estratégicas para manter a taxa de entrega em 94%."
+      title: "Blocos de Trabalho Focado",
+      description: "Organize o seu tempo em blocos ininterruptos com pausas estratégicas para manter a eficiência nas entregas."
     });
     list.push({
       category: "Técnico",
-      title: "Otimização do Repositório",
-      description: "As variáveis de elevação (glassmorphism) exigem renderização limpa. Certifique-se de sincronizar as paletas do modo escuro com o Style Dictionary."
+      title: "Revisão e Testes",
+      description: "Garanta que todo o código submetido tem testes adequados e cumpre os padrões de qualidade da equipa."
     });
   } else if (isDesigner) {
     list.push({
       category: "Design",
-      title: "Consistência de Tokens",
-      description: "Revise o contraste do 'surface-container-high' para passar com folga nos testes de acessibilidade do Figma no modo escuro."
+      title: "Consistência Visual",
+      description: "Revise a aplicação dos componentes e tokens visuais para garantir uma experiência consistente."
     });
     list.push({
       category: "Colaboração",
-      title: "Feedback dos Desenvolvedores",
-      description: "Abra um canal rápido com a equipa de dev para validar a exportação do arquivo 'tokens_v2.json' e evitar gargalos de integração."
+      title: "Alinhamento de Requisitos",
+      description: "Valide os protótipos e assets visuais com os responsáveis do projeto antes do envio final."
     });
     list.push({
       category: "Bem-estar",
-      title: "Pausa Criativa",
-      description: "Descanse a visão de telas OLED a cada 2 horas para revigorar sua criatividade e garantir precisão nos detalhes de layout."
+      title: "Pausas de Foco",
+      description: "Faça pausas regulares para manter a clareza visual e o nível de precisão criativa."
     });
   } else if (isManager) {
     list.push({
       category: "Prioridade",
-      title: "Monitoramento de Prazos",
-      description: "Há 3 prazos críticos agendados para hoje. Certifique-se de que a entrega V1 do rebranding está na mesa de revisão até as 11:30."
+      title: "Acompanhamento de Prazos",
+      description: `Com ${tasks.length} tarefa(s) registada(s), monitorize os prazos das entregas críticas da semana.`
     });
     list.push({
       category: "Equipa",
       title: "Sincronização Diária",
-      description: "Aproveite a reunião de Design Review para alinhar as prioridades semanais com Carlos e Sofia e manter o ritmo do projeto Nexus."
+      description: "Acompanhe os relatórios diários submetidos pela equipa para identificar e resolver bloqueios."
     });
     list.push({
       category: "Planeamento",
-      title: "Sugestões de Foco",
-      description: "Com 142 tarefas concluídas na equipa, o foco deve ser manter o engajamento e definir metas realistas para o próximo sprint."
+      title: "Distribuição de Carga",
+      description: `A taxa de conclusão atual é de ${completedCount} tarefa(s) concluída(s). Garanta o equilíbrio da carga de trabalho.`
     });
   } else {
     list.push({
       category: "Foco",
       title: "Planeamento Diário",
-      description: "Inicie o dia revisando o seu calendário e definindo as 3 prioridades absolutas para manter as entregas sob controlo."
+      description: "Inicie o dia revisando o seu calendário e definindo as prioridades para manter as entregas sob controlo."
     });
     list.push({
       category: "Organização",
-      title: "Limpeza de Caixa",
-      description: "Responda às menções urgentes e marque as notificações lidas para limpar seu Workspace OS e reduzir a fadiga mental."
+      title: "Fluxo de Trabalho",
+      description: "Mantenha o estado das suas tarefas atualizado no sistema para transparência de toda a equipa."
     });
     list.push({
       category: "Bem-estar",
       title: "Ritmo Saudável",
-      description: "Mantenha o equilíbrio do seu horário laboral e registre as horas dedicadas com precisão para análises de produtividade corretas."
+      description: "Mantenha o equilíbrio do seu horário laboral e registe o progresso com precisão."
     });
   }
   return list;

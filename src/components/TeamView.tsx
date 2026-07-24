@@ -11,6 +11,7 @@ interface TeamViewProps {
   profiles: Profile[];
   hrData: Record<string, HRData>;
   currentRole: 'admin' | 'leader' | 'member';
+  activeProfileId?: string;
   onAddMember: (newProfile: Profile, newHR?: HRData) => void;
   tasks: Task[];
   onAddTask: (newTask: Task) => void;
@@ -19,7 +20,7 @@ interface TeamViewProps {
   onUpdateNotifications: (updated: Notification[]) => void;
 }
 
-export default function TeamView({ profiles, hrData, currentRole, onAddMember, tasks, onAddTask, onUpdateTask, notifications, onUpdateNotifications }: TeamViewProps) {
+export default function TeamView({ profiles, hrData, currentRole, activeProfileId, onAddMember, tasks, onAddTask, onUpdateTask, notifications, onUpdateNotifications }: TeamViewProps) {
   const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({});
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedIbanProfile, setSelectedIbanProfile] = useState<{ name: string; iban: string } | null>(null);
@@ -95,8 +96,15 @@ export default function TeamView({ profiles, hrData, currentRole, onAddMember, t
   };
 
   // RBAC restrictions for seeing detail blocks
-  const canSeeDetails = currentRole === 'admin' || currentRole === 'leader';
+  const canSeePersonalInfo = currentRole === 'admin';
   const canSeeAdminInfo = currentRole === 'admin';
+
+  // Group profiles into 3 distinct role columns
+  const adminProfiles = profiles.filter(p => p.nivel_acesso === 'admin');
+
+  const leaderProfiles = profiles.filter(p => p.nivel_acesso === 'leader');
+
+  const memberProfiles = profiles.filter(p => p.nivel_acesso !== 'admin' && p.nivel_acesso !== 'leader');
 
   return (
     <div id="team-container" className="space-y-6">
@@ -108,8 +116,8 @@ export default function TeamView({ profiles, hrData, currentRole, onAddMember, t
           <p className="text-sm text-on-surface-variant mt-1">Visão geral e administração de membros.</p>
         </div>
         
-        {/* Only leaders/admins can add members */}
-        {(currentRole === 'admin' || currentRole === 'leader') && (
+        {/* Only administrators can add new team members */}
+        {currentRole === 'admin' && (
           <button
             onClick={() => setShowAddModal(true)}
             className="h-12 px-5 bg-[#FCD15A] hover:bg-[#ebc24c] text-[#0D0D11] rounded-lg font-semibold flex items-center gap-2 transition-all active:scale-95 shadow-md"
@@ -157,7 +165,15 @@ export default function TeamView({ profiles, hrData, currentRole, onAddMember, t
 
           {/* Subordinates Focus Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {profiles.map(p => {
+            {profiles
+              .filter(p => {
+                const isTargetAdmin = p.nivel_acesso === 'admin';
+                if (isTargetAdmin && currentRole !== 'admin') {
+                  return false; // Only admins can see real-time activities of administrators
+                }
+                return true;
+              })
+              .map(p => {
               const activeTasks = tasks.filter(t => t.id_responsavel === p.id && t.status === 'in_progress');
               const pendingCount = tasks.filter(t => t.id_responsavel === p.id && t.status === 'pending').length;
               const hasActive = activeTasks.length > 0;
@@ -230,11 +246,26 @@ export default function TeamView({ profiles, hrData, currentRole, onAddMember, t
         </section>
       )}
 
-      {/* Team Members Grid */}
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {profiles.map(p => {
+      {/* Team Members Helper Function */}
+      {(() => {
+        const renderProfileCard = (p: Profile) => {
           const isOpen = !!openAccordions[p.id];
           const hr = hrData[p.id];
+          const isTargetAdmin = p.nivel_acesso === 'admin';
+          const isTargetLeader = p.nivel_acesso === 'leader';
+          const isTargetSelf = p.id === activeProfileId;
+
+          // Ninguém, a não ser os próprios administradores, pode ver as atividades dos administradores.
+          const canSeeTasksForThisProfile = isTargetAdmin ? (currentRole === 'admin') : true;
+
+          let canAssignTask = false;
+          if (currentRole === 'admin') {
+            canAssignTask = true; // Admin can assign to self, leaders, and members
+          } else if (currentRole === 'leader') {
+            canAssignTask = isTargetSelf || (!isTargetAdmin && !isTargetLeader); // Leader can assign to self and members
+          } else if (currentRole === 'member') {
+            canAssignTask = isTargetSelf; // Member can ONLY assign to self
+          }
 
           return (
             <div 
@@ -258,9 +289,11 @@ export default function TeamView({ profiles, hrData, currentRole, onAddMember, t
                     <span className="bg-primary-container/30 text-primary border border-primary/20 text-[10px] font-bold px-2.5 py-0.5 rounded uppercase tracking-wider h-6 flex items-center">
                       {p.funcao}
                     </span>
-                    <span className="text-on-surface-variant text-[11px] font-medium">
-                      {p.horario}
-                    </span>
+                    {(p.nivel_acesso === 'admin' ? currentRole === 'admin' : (currentRole !== 'member' || p.id === activeProfileId)) && (
+                      <span className="text-on-surface-variant text-[11px] font-medium">
+                        {p.horario}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -278,8 +311,8 @@ export default function TeamView({ profiles, hrData, currentRole, onAddMember, t
               {isOpen && (
                 <div className="border-t border-white/5 pt-4 space-y-4 animate-fadeIn">
                   
-                  {/* Basic Details: restricted by RBAC or personal profile */}
-                  {canSeeDetails ? (
+                  {/* Basic Personal Details: restricted strictly to Admin */}
+                  {canSeePersonalInfo && (
                     <div className="grid grid-cols-2 gap-3 text-xs">
                       <div className="bg-[#0D0D11]/30 p-2.5 rounded-lg border border-white/5">
                         <span className="text-on-surface-variant block mb-1">Contratação</span>
@@ -303,14 +336,10 @@ export default function TeamView({ profiles, hrData, currentRole, onAddMember, t
                         </span>
                       </div>
                     </div>
-                  ) : (
-                    <div className="p-3 bg-[#0D0D11]/30 rounded-lg text-xs text-on-surface-variant text-center border border-white/5">
-                      🔒 Detalhes adicionais visíveis apenas para Líderes e Administradores.
-                    </div>
                   )}
 
                   {/* REGISTO DE ATIVIDADES E TAREFAS EM TEMPO REAL */}
-                  {canSeeDetails && (
+                  {canSeeTasksForThisProfile ? (
                     <div className="bg-[#0D0D11]/30 border border-white/5 rounded-lg p-3.5 space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
@@ -318,20 +347,22 @@ export default function TeamView({ profiles, hrData, currentRole, onAddMember, t
                           Tarefas & Atividades Diárias
                         </h4>
                         
-                        <button
-                          onClick={() => {
-                            if (assigningToMemberId === p.id) {
-                              setAssigningToMemberId(null);
-                            } else {
-                              setAssigningToMemberId(p.id);
-                              setTaskDeadline(new Date(Date.now() + 5*24*60*60*1000).toISOString().split('T')[0]);
-                            }
-                          }}
-                          className="text-[11px] font-bold text-[#FCD15A] hover:text-[#ebc24c] flex items-center gap-1 bg-white/5 px-2.5 py-1 rounded border border-white/5 transition-all hover:bg-white/10 cursor-pointer"
-                        >
-                          <Plus size={11} />
-                          <span>Atribuir Tarefa</span>
-                        </button>
+                        {canAssignTask && (
+                          <button
+                            onClick={() => {
+                              if (assigningToMemberId === p.id) {
+                                setAssigningToMemberId(null);
+                              } else {
+                                setAssigningToMemberId(p.id);
+                                setTaskDeadline(new Date(Date.now() + 5*24*60*60*1000).toISOString().split('T')[0]);
+                              }
+                            }}
+                            className="text-[11px] font-bold text-[#FCD15A] hover:text-[#ebc24c] flex items-center gap-1 bg-white/5 px-2.5 py-1 rounded border border-white/5 transition-all hover:bg-white/10 cursor-pointer"
+                          >
+                            <Plus size={11} />
+                            <span>Atribuir Tarefa</span>
+                          </button>
+                        )}
                       </div>
 
                       {/* Add Task Inline Form */}
@@ -614,6 +645,10 @@ export default function TeamView({ profiles, hrData, currentRole, onAddMember, t
                         )}
                       </div>
                     </div>
+                  ) : (
+                    <div className="p-3 bg-[#0D0D11]/40 border border-white/5 rounded-lg text-xs text-on-surface-variant text-center flex items-center justify-center gap-1.5">
+                      <span>🔒 As atividades dos administradores são visíveis exclusivamente para Administradores.</span>
+                    </div>
                   )}
 
                   {/* ADMIN Block / Bloco Financeiro e Contratual: STRICTLY restricted to Admin */}
@@ -653,7 +688,7 @@ export default function TeamView({ profiles, hrData, currentRole, onAddMember, t
                       )}
                     </div>
                   ) : (
-                    isOpen && !canSeeAdminInfo && canSeeDetails && (
+                    isOpen && !canSeeAdminInfo && (
                       <div className="p-3 bg-error-container/5 border border-error/15 rounded-lg text-xs text-[#ffb4ab] text-center flex items-center justify-center gap-1.5">
                         <span>⚠️ Bloco financeiro restrito ao Administrador (RH).</span>
                       </div>
@@ -665,8 +700,72 @@ export default function TeamView({ profiles, hrData, currentRole, onAddMember, t
 
             </div>
           );
-        })}
-      </section>
+        };
+
+        return (
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Column 1: Administradores */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between bg-[#16161F] border border-white/10 p-3.5 rounded-xl shadow-md">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <ShieldCheck size={16} className="text-secondary" />
+                  Administradores
+                </h3>
+                <span className="bg-secondary/10 text-secondary border border-secondary/20 text-xs font-bold px-2.5 py-0.5 rounded-full">
+                  {adminProfiles.length}
+                </span>
+              </div>
+              <div className="space-y-4">
+                {adminProfiles.length === 0 ? (
+                  <p className="text-xs text-on-surface-variant text-center py-6 bg-[#16161F]/40 rounded-xl border border-white/5">Sem administradores de momento.</p>
+                ) : (
+                  adminProfiles.map(p => renderProfileCard(p))
+                )}
+              </div>
+            </div>
+
+            {/* Column 2: Líderes */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between bg-[#16161F] border border-white/10 p-3.5 rounded-xl shadow-md">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <Award size={16} className="text-[#FCD15A]" />
+                  Líderes
+                </h3>
+                <span className="bg-[#FCD15A]/10 text-[#FCD15A] border border-[#FCD15A]/20 text-xs font-bold px-2.5 py-0.5 rounded-full">
+                  {leaderProfiles.length}
+                </span>
+              </div>
+              <div className="space-y-4">
+                {leaderProfiles.length === 0 ? (
+                  <p className="text-xs text-on-surface-variant text-center py-6 bg-[#16161F]/40 rounded-xl border border-white/5">Sem líderes registados.</p>
+                ) : (
+                  leaderProfiles.map(p => renderProfileCard(p))
+                )}
+              </div>
+            </div>
+
+            {/* Column 3: Membros */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between bg-[#16161F] border border-white/10 p-3.5 rounded-xl shadow-md">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <Users size={16} className="text-primary" />
+                  Membros
+                </h3>
+                <span className="bg-primary/10 text-primary border border-primary/20 text-xs font-bold px-2.5 py-0.5 rounded-full">
+                  {memberProfiles.length}
+                </span>
+              </div>
+              <div className="space-y-4">
+                {memberProfiles.length === 0 ? (
+                  <p className="text-xs text-on-surface-variant text-center py-6 bg-[#16161F]/40 rounded-xl border border-white/5">Sem membros registados.</p>
+                ) : (
+                  memberProfiles.map(p => renderProfileCard(p))
+                )}
+              </div>
+            </div>
+          </section>
+        );
+      })()}
 
       {/* New Member Registration Modal */}
       {showAddModal && (

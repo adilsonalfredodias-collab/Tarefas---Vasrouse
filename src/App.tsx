@@ -15,7 +15,8 @@ import {
   ChevronRight,
   ShieldCheck,
   Award,
-  ClipboardList
+  ClipboardList,
+  TrendingUp
 } from "lucide-react";
 import { Profile, HRData, Task, Notification, DailyReport } from "./types";
 import { 
@@ -29,6 +30,7 @@ import {
 // Components
 import LoginView from "./components/LoginView";
 import AnalyticsView from "./components/AnalyticsView";
+import DashboardView from "./components/DashboardView";
 import TeamView from "./components/TeamView";
 import CalendarView from "./components/CalendarView";
 import TaskDetailsView from "./components/TaskDetailsView";
@@ -53,7 +55,7 @@ import {
 
 import { AUTHORIZED_USERS, defaultAuthorizedProfiles, defaultAuthorizedTasks } from "./data/authorizedUsers";
 
-type ActiveViewType = 'login' | 'dashboard' | 'team' | 'calendar' | 'notifications' | 'profile' | 'task-details' | 'reports';
+type ActiveViewType = 'login' | 'dashboard' | 'analytics' | 'team' | 'calendar' | 'notifications' | 'profile' | 'task-details' | 'reports';
 
 
 export default function App() {
@@ -110,7 +112,7 @@ export default function App() {
         localStorage.setItem("vasrouse_hrData", JSON.stringify(hrMap));
       }
 
-      if (spTasks && spTasks.length > 0) {
+      if (spTasks !== null) {
         setTasks(spTasks);
         localStorage.setItem("vasrouse_tasks", JSON.stringify(spTasks));
       }
@@ -158,18 +160,24 @@ export default function App() {
         }
         if (storedTasks) {
           const parsedTasks: Task[] = JSON.parse(storedTasks);
-          const cleanTasks = parsedTasks.filter(t => !['task-rebranding', 'task-mobile', 'task-checkout'].includes(t.id));
-          if (cleanTasks.length > 0) setTasks(cleanTasks);
+          const cleanTasks = parsedTasks.filter(t => !t.id.match(/^task-(10|11|[1-9]|rebranding|mobile|checkout)$/));
+          setTasks(cleanTasks);
+        } else {
+          setTasks([]);
         }
         if (storedNotifs) {
           const parsedNotifs: Notification[] = JSON.parse(storedNotifs);
           const cleanNotifs = parsedNotifs.filter(n => !['notif-1', 'notif-2', 'notif-3', 'notif-4'].includes(n.id));
           setNotifications(cleanNotifs);
+        } else {
+          setNotifications([]);
         }
         if (storedReports) {
           const parsedReports: DailyReport[] = JSON.parse(storedReports);
           const cleanReports = parsedReports.filter(r => !['report-1', 'report-2'].includes(r.id));
           setDailyReports(cleanReports);
+        } else {
+          setDailyReports([]);
         }
       }
 
@@ -287,7 +295,7 @@ export default function App() {
 
     setProfiles(updatedProfiles);
     localStorage.setItem("vasrouse_profiles", JSON.stringify(updatedProfiles));
-    saveProfileToSupabase(profileToSync).catch(err => console.error("Error saving profile to Supabase:", err));
+    saveProfileToSupabase(profileToSync).catch(() => null);
 
     // Lock active profile and access level strictly to authorized configuration
     setActiveProfileId(authorized.id);
@@ -326,12 +334,12 @@ export default function App() {
   const handleAddMember = (newProfile: Profile, newHR?: HRData) => {
     const updatedProfiles = [...profiles, newProfile];
     handleUpdateProfiles(updatedProfiles);
-    saveProfileToSupabase(newProfile).catch(err => console.error("Error saving profile to Supabase:", err));
+    saveProfileToSupabase(newProfile).catch(() => null);
 
     if (newHR) {
       const updatedHR = { ...hrData, [newProfile.id]: newHR };
       handleUpdateHRData(updatedHR);
-      saveHRDataToSupabase(newHR).catch(err => console.error("Error saving HR data to Supabase:", err));
+      saveHRDataToSupabase(newHR).catch(() => null);
     }
   };
 
@@ -339,13 +347,13 @@ export default function App() {
   const handleUpdateSingleTask = (updatedTask: Task) => {
     const updated = tasks.map(t => t.id === updatedTask.id ? updatedTask : t);
     handleUpdateTasks(updated);
-    saveTaskToSupabase(updatedTask).catch(err => console.error("Error saving task to Supabase:", err));
+    saveTaskToSupabase(updatedTask).catch(() => null);
   };
 
   const handleAddTask = (newTask: Task) => {
     const updated = [...tasks, newTask];
     handleUpdateTasks(updated);
-    saveTaskToSupabase(newTask).catch(err => console.error("Error saving new task to Supabase:", err));
+    saveTaskToSupabase(newTask).catch(() => null);
   };
 
   // Mark all notifications read
@@ -455,6 +463,18 @@ export default function App() {
           </button>
 
           <button
+            onClick={() => changeView('analytics')}
+            className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all font-semibold text-xs uppercase tracking-wider text-left cursor-pointer ${
+              activeView === 'analytics' 
+                ? "bg-[#5A52A3]/25 text-[#c6bfff] border border-[#5A52A3]/30" 
+                : "text-on-surface-variant hover:bg-white/5 hover:text-white"
+            }`}
+          >
+            <TrendingUp size={16} />
+            <span>Análise</span>
+          </button>
+
+          <button
             onClick={() => changeView('team')}
             className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all font-semibold text-xs uppercase tracking-wider text-left cursor-pointer ${
               activeView === 'team' 
@@ -546,6 +566,14 @@ export default function App() {
       {/* 3. Main Workspace Router Content canvas */}
       <main id="main-content-scroll" className="flex-1 md:ml-[260px] p-4 sm:p-6 md:p-8 min-h-screen overflow-y-auto w-full max-w-7xl mx-auto animate-fadeIn">
         {activeView === 'dashboard' && (
+          <DashboardView 
+            tasks={tasks} 
+            activeProfile={activeProfile} 
+            onTaskClick={handleTaskClick}
+          />
+        )}
+        
+        {activeView === 'analytics' && (
           <AnalyticsView 
             profiles={profiles} 
             tasks={tasks} 
@@ -558,6 +586,7 @@ export default function App() {
             profiles={profiles} 
             hrData={hrData} 
             currentRole={currentRole} 
+            activeProfileId={activeProfileId}
             onAddMember={handleAddMember} 
             tasks={tasks}
             onAddTask={handleAddTask}
@@ -572,6 +601,7 @@ export default function App() {
             tasks={tasks} 
             profiles={profiles} 
             currentRole={currentRole}
+            activeProfileId={activeProfileId}
             onTaskClick={handleTaskClick} 
             onAddTask={handleAddTask}
           />

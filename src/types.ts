@@ -3,6 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+export interface Attendance {
+  id: string;
+  id_usuario: string;
+  data: string; // "YYYY-MM-DD"
+  hora_entrada: string; // HH:mm
+  hora_saida?: string; // HH:mm
+}
+
 export interface Profile {
   id: string;
   name: string;

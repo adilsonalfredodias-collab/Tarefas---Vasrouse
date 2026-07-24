@@ -46,31 +46,79 @@ export default function AnalyticsView({ profiles, tasks, activeProfile }: Analyt
 
   const currentMember = profiles.find(p => p.id === selectedMemberId) || activeProfile;
 
-  // Count active stats
-  const completedTasksCount = tasks.filter(t => t.status === "completed").length;
-  const inProgressCount = tasks.filter(t => t.status === "in_progress").length;
-  const pendingCount = tasks.filter(t => t.status === "pending" || t.status === "review").length;
-  const totalTasksCount = tasks.length;
+  const filteredTasks = tasks.filter(t => t.id_responsavel === selectedMemberId);
 
-  // Chart data 1: Weekly Performance representation
+  // Count active stats dynamically from real tasks
+  const completedTasksCount = filteredTasks.filter(t => t.status === "completed").length;
+  const inProgressCount = filteredTasks.filter(t => t.status === "in_progress").length;
+  const pendingCount = filteredTasks.filter(t => t.status === "pending" || t.status === "review").length;
+  const totalTasksCount = filteredTasks.length;
+
+  const calculateTaskHours = (task: Task) => {
+    if (!task.tempo_inicio || !task.tempo_fim) return 2;
+    const [h1, m1] = task.tempo_inicio.split(":").map(Number);
+    const [h2, m2] = task.tempo_fim.split(":").map(Number);
+    if (!isNaN(h1) && !isNaN(h2)) {
+      const diff = (h2 * 60 + (m2 || 0)) - (h1 * 60 + (m1 || 0));
+      return diff > 0 ? Math.round((diff / 60) * 10) / 10 : 2;
+    }
+    return 2;
+  };
+
+  const dedicatedHours = filteredTasks
+    .filter(t => t.status === "completed" || t.status === "in_progress")
+    .reduce((sum, t) => sum + calculateTaskHours(t), 0);
+
+  const completionRate = totalTasksCount > 0 
+    ? Math.round((completedTasksCount / totalTasksCount) * 100) 
+    : 0;
+
+  // Chart data 1: Dynamic Weekly Performance
+  const dayMap: Record<number, { horas: number; tarefas: number }> = {
+    1: { horas: 0, tarefas: 0 },
+    2: { horas: 0, tarefas: 0 },
+    3: { horas: 0, tarefas: 0 },
+    4: { horas: 0, tarefas: 0 },
+    5: { horas: 0, tarefas: 0 },
+    6: { horas: 0, tarefas: 0 },
+    0: { horas: 0, tarefas: 0 },
+  };
+
+  filteredTasks.forEach(t => {
+    if (t.prazo) {
+      const d = new Date(t.prazo);
+      const dayOfWeek = d.getDay();
+      if (dayMap[dayOfWeek]) {
+        dayMap[dayOfWeek].tarefas += 1;
+        dayMap[dayOfWeek].horas += calculateTaskHours(t);
+      }
+    }
+  });
+
   const weeklyData = [
-    { name: "Seg", Horas: 12, Tarefas: 3, amt: 2400 },
-    { name: "Ter", Horas: 18, Tarefas: 5, amt: 2210 },
-    { name: "Qua", Horas: 24, Tarefas: 8, amt: 2290 },
-    { name: "Qui", Horas: 15, Tarefas: 4, amt: 2000 },
-    { name: "Sex", Horas: 20, Tarefas: 6, amt: 2181 },
-    { name: "Sáb", Horas: 5, Tarefas: 1, amt: 2500 },
-    { name: "Dom", Horas: 3, Tarefas: 0, amt: 2100 },
+    { name: "Seg", Horas: dayMap[1].horas, Tarefas: dayMap[1].tarefas },
+    { name: "Ter", Horas: dayMap[2].horas, Tarefas: dayMap[2].tarefas },
+    { name: "Qua", Horas: dayMap[3].horas, Tarefas: dayMap[3].tarefas },
+    { name: "Qui", Horas: dayMap[4].horas, Tarefas: dayMap[4].tarefas },
+    { name: "Sex", Horas: dayMap[5].horas, Tarefas: dayMap[5].tarefas },
+    { name: "Sáb", Horas: dayMap[6].horas, Tarefas: dayMap[6].tarefas },
+    { name: "Dom", Horas: dayMap[0].horas, Tarefas: dayMap[0].tarefas },
   ];
 
   // Chart data 2: Tasks by State Pie Chart
-  const pieData = [
-    { name: "Concluídas", value: completedTasksCount || 1 },
-    { name: "Em Progresso", value: inProgressCount || 1 },
-    { name: "Pausadas / Pendentes", value: pendingCount || 1 },
-  ];
+  const pieData = totalTasksCount === 0 
+    ? [{ name: "Sem Tarefas", value: 1 }] 
+    : [
+        { name: "Concluídas", value: completedTasksCount },
+        { name: "Em Progresso", value: inProgressCount },
+        { name: "Pausadas / Pendentes", value: pendingCount },
+      ].filter(item => item.value > 0);
 
-  const COLORS = ["#5A52A3", "#FCD15A", "#353439"];
+  const COLORS = totalTasksCount === 0 ? ["#2A2A36"] : ["#5A52A3", "#FCD15A", "#353439"];
+
+  const completedPct = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
+  const inProgressPct = totalTasksCount > 0 ? Math.round((inProgressCount / totalTasksCount) * 100) : 0;
+  const pendingPct = totalTasksCount > 0 ? Math.round((pendingCount / totalTasksCount) * 100) : 0;
 
   // Fetch AI focus suggestions from our Express backend
   const fetchSuggestions = async (memberId: string) => {
@@ -87,7 +135,7 @@ export default function AnalyticsView({ profiles, tasks, activeProfile }: Analyt
           role: member?.funcao || "Colaborador",
           name: member?.name || "Membro",
           tasks: memberTasks,
-          completedCount: completedCount + 3 // add baseline for visual consistency
+          completedCount: completedCount
         })
       });
 
@@ -113,8 +161,8 @@ export default function AnalyticsView({ profiles, tasks, activeProfile }: Analyt
       {/* Header Section */}
       <section className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Productivity Analytics</h1>
-          <p className="text-sm text-on-surface-variant">Weekly performance insights and task completion metrics.</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Análise de Produtividade</h1>
+          <p className="text-sm text-on-surface-variant">Métricas e relatórios calculados a partir das tarefas do Workspace.</p>
         </div>
         
         {/* Member selector for personalization */}
@@ -145,8 +193,8 @@ export default function AnalyticsView({ profiles, tasks, activeProfile }: Analyt
             <span className="text-xs font-semibold uppercase tracking-wider">Tarefas Concluídas</span>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-bold text-white">{completedTasksCount + 138}</span>
-            <span className="text-xs font-semibold text-secondary">+12%</span>
+            <span className="text-4xl font-bold text-white">{completedTasksCount}</span>
+            <span className="text-xs font-semibold text-secondary">{completedPct}% do total</span>
           </div>
         </div>
 
@@ -158,7 +206,7 @@ export default function AnalyticsView({ profiles, tasks, activeProfile }: Analyt
             <span className="text-xs font-semibold uppercase tracking-wider">Horas Dedicadas</span>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-bold text-white">324</span>
+            <span className="text-4xl font-bold text-white">{dedicatedHours}</span>
             <span className="text-sm text-on-surface-variant">hrs</span>
           </div>
         </div>
@@ -171,8 +219,8 @@ export default function AnalyticsView({ profiles, tasks, activeProfile }: Analyt
             <span className="text-xs font-semibold uppercase tracking-wider">Taxa Cumprimento</span>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-bold text-white">94%</span>
-            <span className="text-xs font-semibold text-secondary">↑</span>
+            <span className="text-4xl font-bold text-white">{completionRate}%</span>
+            <span className="text-xs font-semibold text-secondary">{totalTasksCount > 0 ? "em tempo real" : "0 tarefas"}</span>
           </div>
         </div>
       </section>
@@ -231,7 +279,7 @@ export default function AnalyticsView({ profiles, tasks, activeProfile }: Analyt
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-2xl font-bold text-white">{totalTasksCount + 139}</span>
+              <span className="text-2xl font-bold text-white">{totalTasksCount}</span>
               <span className="text-[10px] text-on-surface-variant uppercase font-medium">Total</span>
             </div>
           </div>
@@ -243,21 +291,21 @@ export default function AnalyticsView({ profiles, tasks, activeProfile }: Analyt
                 <div className="w-3 h-3 rounded-full bg-[#5A52A3]"></div>
                 <span className="text-xs text-on-surface-variant">Concluídas</span>
               </div>
-              <span className="text-xs font-bold text-white">50%</span>
+              <span className="text-xs font-bold text-white">{completedPct}%</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-[#FCD15A]"></div>
                 <span className="text-xs text-on-surface-variant">Em Progresso</span>
               </div>
-              <span className="text-xs font-bold text-white">25%</span>
+              <span className="text-xs font-bold text-white">{inProgressPct}%</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-[#353439]"></div>
                 <span className="text-xs text-on-surface-variant">Pausadas / Pendentes</span>
               </div>
-              <span className="text-xs font-bold text-white">25%</span>
+              <span className="text-xs font-bold text-white">{pendingPct}%</span>
             </div>
           </div>
         </div>

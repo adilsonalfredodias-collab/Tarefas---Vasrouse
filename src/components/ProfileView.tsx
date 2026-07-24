@@ -230,13 +230,15 @@ export default function ProfileView({
                 alt={profile.name} 
                 className="w-full h-full rounded-full object-cover" 
               />
-              <button 
-                onClick={() => setActiveTab('account')}
-                aria-label="Editar Nome"
-                className="absolute bottom-2 right-2 bg-[#5a52a3] hover:bg-[#4E4693] text-white p-2.5 rounded-full transition-all border border-white/10 flex items-center justify-center cursor-pointer active:scale-90 shadow-md"
-              >
-                <Edit3 size={15} />
-              </button>
+              {currentRole === 'admin' && (
+                <button 
+                  onClick={() => setActiveTab('account')}
+                  aria-label="Editar Nome"
+                  className="absolute bottom-2 right-2 bg-[#5a52a3] hover:bg-[#4E4693] text-white p-2.5 rounded-full transition-all border border-white/10 flex items-center justify-center cursor-pointer active:scale-90 shadow-md"
+                >
+                  <Edit3 size={15} />
+                </button>
+              )}
             </div>
 
             <div className="text-center">
@@ -416,9 +418,20 @@ export default function ProfileView({
             </div>
             <div>
               <h3 className="text-base font-bold text-white tracking-tight">Configurações da Conta</h3>
-              <p className="text-xs text-on-surface-variant mt-0.5">Mantenha os seus dados de identificação e informações de contacto atualizados.</p>
+              <p className="text-xs text-on-surface-variant mt-0.5">
+                {currentRole !== 'admin' 
+                  ? "Visualização dos dados pessoais e informações de contacto."
+                  : "Mantenha os seus dados de identificação e informações de contacto atualizados."}
+              </p>
             </div>
           </div>
+
+          {currentRole !== 'admin' && (
+            <div className="p-3.5 bg-[#5A52A3]/15 border border-[#5A52A3]/30 rounded-xl flex items-center gap-2.5 text-xs text-[#c6bfff]">
+              <Lock size={16} className="shrink-0 text-[#FCD15A]" />
+              <span>As suas informações de perfil foram configuradas pela administração e estão em modo de apenas visualização.</span>
+            </div>
+          )}
 
           <div className="space-y-4">
             {/* Choose Profile Picture */}
@@ -430,21 +443,25 @@ export default function ProfileView({
                 </div>
                 
                 <div className="space-y-2 w-full">
-                  <p className="text-[10px] text-on-surface-variant">Selecione uma imagem de perfil predefinida para aplicar instantaneamente:</p>
-                  <div className="grid grid-cols-6 gap-2">
-                    {PRESET_AVATARS.map((av, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => setEditAvatar(av)}
-                        className={`aspect-square rounded-full overflow-hidden border-2 transition-all cursor-pointer ${
-                          editAvatar === av ? "border-secondary scale-110 shadow-lg shadow-black/25" : "border-white/10 hover:border-white/30"
-                        }`}
-                      >
-                        <img src={av} alt={`Preset ${index + 1}`} className="w-full h-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
+                  <p className="text-[10px] text-on-surface-variant">
+                    {currentRole !== 'admin' ? "Imagem de perfil atribuída:" : "Selecione uma imagem de perfil predefinida para aplicar instantaneamente:"}
+                  </p>
+                  {currentRole === 'admin' && (
+                    <div className="grid grid-cols-6 gap-2">
+                      {PRESET_AVATARS.map((av, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => setEditAvatar(av)}
+                          className={`aspect-square rounded-full overflow-hidden border-2 transition-all cursor-pointer ${
+                            editAvatar === av ? "border-secondary scale-110 shadow-lg shadow-black/25" : "border-white/10 hover:border-white/30"
+                          }`}
+                        >
+                          <img src={av} alt={`Preset ${index + 1}`} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -456,9 +473,10 @@ export default function ProfileView({
                 <input
                   type="text"
                   required
+                  disabled={currentRole !== 'admin'}
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full h-10 bg-[#0D0D11] border border-white/10 text-white text-xs rounded-lg px-3 focus:outline-none focus:border-[#5A52A3] transition-colors"
+                  className="w-full h-10 bg-[#0D0D11] border border-white/10 text-white text-xs rounded-lg px-3 focus:outline-none focus:border-[#5A52A3] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -467,9 +485,10 @@ export default function ProfileView({
                 <input
                   type="text"
                   required
+                  disabled={currentRole !== 'admin'}
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full h-10 bg-[#0D0D11] border border-white/10 text-white text-xs rounded-lg px-3 focus:outline-none focus:border-[#5A52A3] transition-colors"
+                  className="w-full h-10 bg-[#0D0D11] border border-white/10 text-white text-xs rounded-lg px-3 focus:outline-none focus:border-[#5A52A3] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -477,10 +496,11 @@ export default function ProfileView({
                 <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Aniversário</label>
                 <input
                   type="text"
+                  disabled={currentRole !== 'admin'}
                   placeholder="Ex: 12 de Abril ou YYYY-MM-DD"
                   value={editAniversario}
                   onChange={(e) => setEditAniversario(e.target.value)}
-                  className="w-full h-10 bg-[#0D0D11] border border-white/10 text-white text-xs rounded-lg px-3 focus:outline-none focus:border-[#5A52A3] transition-colors"
+                  className="w-full h-10 bg-[#0D0D11] border border-white/10 text-white text-xs rounded-lg px-3 focus:outline-none focus:border-[#5A52A3] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -488,10 +508,11 @@ export default function ProfileView({
                 <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Horário de Trabalho</label>
                 <input
                   type="text"
+                  disabled={currentRole !== 'admin'}
                   placeholder="Ex: 08:00 - 17:00"
                   value={editHorario}
                   onChange={(e) => setEditHorario(e.target.value)}
-                  className="w-full h-10 bg-[#0D0D11] border border-white/10 text-white text-xs rounded-lg px-3 focus:outline-none focus:border-[#5A52A3] transition-colors"
+                  className="w-full h-10 bg-[#0D0D11] border border-white/10 text-white text-xs rounded-lg px-3 focus:outline-none focus:border-[#5A52A3] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -499,10 +520,11 @@ export default function ProfileView({
                 <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Residência / Morada</label>
                 <input
                   type="text"
+                  disabled={currentRole !== 'admin'}
                   placeholder="Ex: Luanda, Angola"
                   value={editResidencia}
                   onChange={(e) => setEditResidencia(e.target.value)}
-                  className="w-full h-10 bg-[#0D0D11] border border-white/10 text-white text-xs rounded-lg px-3 focus:outline-none focus:border-[#5A52A3] transition-colors"
+                  className="w-full h-10 bg-[#0D0D11] border border-white/10 text-white text-xs rounded-lg px-3 focus:outline-none focus:border-[#5A52A3] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
@@ -515,14 +537,16 @@ export default function ProfileView({
               onClick={() => setActiveTab('none')}
               className="flex-1 h-10 bg-transparent hover:bg-white/5 border border-white/10 text-xs font-semibold rounded-lg text-white cursor-pointer"
             >
-              Cancelar
+              {currentRole !== 'admin' ? "Voltar às Configurações" : "Cancelar"}
             </button>
-            <button
-              type="submit"
-              className="flex-1 h-10 bg-primary-container hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all active:scale-[0.99] cursor-pointer"
-            >
-              Gravar Alterações
-            </button>
+            {currentRole === 'admin' && (
+              <button
+                type="submit"
+                className="flex-1 h-10 bg-primary-container hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all active:scale-[0.99] cursor-pointer"
+              >
+                Gravar Alterações
+              </button>
+            )}
           </div>
         </form>
       )}

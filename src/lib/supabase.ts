@@ -69,178 +69,224 @@ export const clearSupabaseCredentials = () => {
 
 // Database helper functions for direct sync when Supabase is connected
 export const fetchProfilesFromSupabase = async (): Promise<Profile[] | null> => {
-  const client = getSupabaseClient();
-  if (!client) return null;
+  try {
+    const client = getSupabaseClient();
+    if (!client) return null;
 
-  const { data, error } = await client.from('profiles').select('*');
-  if (error) {
-    console.error('Error fetching profiles from Supabase:', error);
-    throw error;
+    const { data, error } = await client.from('profiles').select('*');
+    if (error) {
+      console.warn('Notice: Could not fetch profiles from Supabase:', error.message || error);
+      return null;
+    }
+    return data as Profile[];
+  } catch (err) {
+    console.warn('Notice: Exception fetching profiles from Supabase:', err);
+    return null;
   }
-  return data as Profile[];
 };
 
 export const fetchHRDataFromSupabase = async (): Promise<HRData[] | null> => {
-  const client = getSupabaseClient();
-  if (!client) return null;
+  try {
+    const client = getSupabaseClient();
+    if (!client) return null;
 
-  const { data, error } = await client.from('hr_data').select('*');
-  if (error) {
-    console.error('Error fetching HR data from Supabase:', error);
-    throw error;
+    const { data, error } = await client.from('hr_data').select('*');
+    if (error) {
+      console.warn('Notice: Could not fetch HR data from Supabase:', error.message || error);
+      return null;
+    }
+    return data as HRData[];
+  } catch (err) {
+    console.warn('Notice: Exception fetching HR data from Supabase:', err);
+    return null;
   }
-  return data as HRData[];
 };
 
 export const fetchTasksFromSupabase = async (): Promise<Task[] | null> => {
-  const client = getSupabaseClient();
-  if (!client) return null;
+  try {
+    const client = getSupabaseClient();
+    if (!client) return null;
 
-  const { data, error } = await client
-    .from('tasks')
-    .select('*, attachments(*), comments(*)');
+    const { data, error } = await client
+      .from('tasks')
+      .select('*, attachments(*), comments(*)');
 
-  if (error) {
-    console.error('Error fetching tasks from Supabase:', error);
-    throw error;
+    if (error) {
+      console.warn('Notice: Could not fetch tasks from Supabase:', error.message || error);
+      return null;
+    }
+    return data as unknown as Task[];
+  } catch (err) {
+    console.warn('Notice: Exception fetching tasks from Supabase:', err);
+    return null;
   }
-  return data as unknown as Task[];
 };
 
 export const saveTaskToSupabase = async (task: Task): Promise<boolean> => {
-  const client = getSupabaseClient();
-  if (!client) return false;
+  try {
+    const client = getSupabaseClient();
+    if (!client) return false;
 
-  const { error } = await client.from('tasks').upsert({
-    id: task.id.startsWith('task-') ? undefined : task.id,
-    titulo: task.titulo,
-    descricao: task.descricao,
-    id_responsavel: task.id_responsavel,
-    prazo: task.prazo,
-    tempo_inicio: task.tempo_inicio,
-    tempo_fim: task.tempo_fim,
-    status: task.status,
-    progresso: task.progresso,
-    prioridade: task.prioridade,
-    projeto: task.projeto
-  });
+    const taskPayload: Record<string, any> = {
+      id: task.id,
+      titulo: task.titulo,
+      descricao: task.descricao,
+      id_responsavel: task.id_responsavel,
+      prazo: task.prazo,
+      tempo_inicio: task.tempo_inicio,
+      tempo_fim: task.tempo_fim,
+      status: task.status,
+      progresso: task.progresso,
+      prioridade: task.prioridade,
+      projeto: task.projeto
+    };
 
-  if (error) {
-    console.error('Error saving task to Supabase:', error);
+    const { error } = await client.from('tasks').upsert(taskPayload);
+
+    if (error) {
+      console.warn('Notice: Could not sync task to Supabase:', error.message || error);
+      return false;
+    }
+    return true;
+  } catch (err: any) {
+    console.warn('Notice: Exception saving task to Supabase:', err?.message || err);
     return false;
   }
-  return true;
 };
 
 export const fetchNotificationsFromSupabase = async (userId?: string): Promise<Notification[] | null> => {
-  const client = getSupabaseClient();
-  if (!client) return null;
+  try {
+    const client = getSupabaseClient();
+    if (!client) return null;
 
-  let query = client.from('notifications').select('*').order('created_at', { ascending: false });
-  if (userId) {
-    query = query.eq('id_destinatario', userId);
-  }
+    let query = client.from('notifications').select('*').order('created_at', { ascending: false });
+    if (userId) {
+      query = query.eq('id_destinatario', userId);
+    }
 
-  const { data, error } = await query;
-  if (error) {
-    console.error('Error fetching notifications from Supabase:', error);
-    throw error;
+    const { data, error } = await query;
+    if (error) {
+      console.warn('Notice: Could not fetch notifications from Supabase:', error.message || error);
+      return null;
+    }
+    return data as unknown as Notification[];
+  } catch (err) {
+    console.warn('Notice: Exception fetching notifications from Supabase:', err);
+    return null;
   }
-  return data as unknown as Notification[];
 };
 
 export const fetchDailyReportsFromSupabase = async (): Promise<DailyReport[] | null> => {
-  const client = getSupabaseClient();
-  if (!client) return null;
+  try {
+    const client = getSupabaseClient();
+    if (!client) return null;
 
-  const { data, error } = await client
-    .from('daily_reports')
-    .select('*, daily_report_items(*)');
+    const { data, error } = await client
+      .from('daily_reports')
+      .select('*, daily_report_items(*)');
 
-  if (error) {
-    console.error('Error fetching daily reports from Supabase:', error);
-    throw error;
+    if (error) {
+      console.warn('Notice: Could not fetch daily reports from Supabase:', error.message || error);
+      return null;
+    }
+
+    return (data || []).map((report: any) => ({
+      id: report.id,
+      id_usuario: report.id_usuario,
+      nome_usuario: report.nome_usuario,
+      avatar_usuario: report.avatar_usuario,
+      data: report.data,
+      itens: (report.daily_report_items || []).map((item: any) => ({
+        id: item.id,
+        id_tarefa: item.id_tarefa,
+        titulo_tarefa: item.titulo_tarefa,
+        status: item.status,
+        observacoes: item.observacoes || '',
+        anexo: item.anexo
+      }))
+    }));
+  } catch (err) {
+    console.warn('Notice: Exception fetching daily reports from Supabase:', err);
+    return null;
   }
-
-  // Map database response to DailyReport interface
-  return (data || []).map((report: any) => ({
-    id: report.id,
-    id_usuario: report.id_usuario,
-    nome_usuario: report.nome_usuario,
-    avatar_usuario: report.avatar_usuario,
-    data: report.data,
-    itens: (report.daily_report_items || []).map((item: any) => ({
-      id: item.id,
-      id_tarefa: item.id_tarefa,
-      titulo_tarefa: item.titulo_tarefa,
-      status: item.status,
-      observacoes: item.observacoes || '',
-      anexo: item.anexo
-    }))
-  }));
 };
 
 export const saveProfileToSupabase = async (profile: Profile): Promise<boolean> => {
-  const client = getSupabaseClient();
-  if (!client) return false;
+  try {
+    const client = getSupabaseClient();
+    if (!client) return false;
 
-  const { error } = await client.from('profiles').upsert({
-    id: profile.id,
-    name: profile.name,
-    funcao: profile.funcao,
-    nivel_acesso: profile.nivel_acesso,
-    aniversario: profile.aniversario,
-    residencia: profile.residencia,
-    horario: profile.horario,
-    avatar: profile.avatar
-  });
+    const { error } = await client.from('profiles').upsert({
+      id: profile.id,
+      name: profile.name,
+      funcao: profile.funcao,
+      nivel_acesso: profile.nivel_acesso,
+      aniversario: profile.aniversario,
+      residencia: profile.residencia,
+      horario: profile.horario,
+      avatar: profile.avatar
+    });
 
-  if (error) {
-    console.error('Error saving profile to Supabase:', error);
+    if (error) {
+      console.warn('Notice: Could not sync profile to Supabase:', error.message || error);
+      return false;
+    }
+    return true;
+  } catch (err: any) {
+    console.warn('Notice: Exception saving profile to Supabase:', err?.message || err);
     return false;
   }
-  return true;
 };
 
 export const saveHRDataToSupabase = async (hrItem: HRData): Promise<boolean> => {
-  const client = getSupabaseClient();
-  if (!client) return false;
+  try {
+    const client = getSupabaseClient();
+    if (!client) return false;
 
-  const { error } = await client.from('hr_data').upsert({
-    id_perfil: hrItem.id_perfil,
-    salario: hrItem.salario,
-    data_contratacao: hrItem.data_contratacao,
-    iban: hrItem.iban,
-    contrato: hrItem.contrato
-  });
+    const { error } = await client.from('hr_data').upsert({
+      id_perfil: hrItem.id_perfil,
+      salario: hrItem.salario,
+      data_contratacao: hrItem.data_contratacao,
+      iban: hrItem.iban,
+      contrato: hrItem.contrato
+    });
 
-  if (error) {
-    console.error('Error saving HR data to Supabase:', error);
+    if (error) {
+      console.warn('Notice: Could not sync HR data to Supabase:', error.message || error);
+      return false;
+    }
+    return true;
+  } catch (err: any) {
+    console.warn('Notice: Exception saving HR data to Supabase:', err?.message || err);
     return false;
   }
-  return true;
 };
 
 export const saveNotificationToSupabase = async (notif: Notification, id_destinatario?: string): Promise<boolean> => {
-  const client = getSupabaseClient();
-  if (!client) return false;
+  try {
+    const client = getSupabaseClient();
+    if (!client) return false;
 
-  const { error } = await client.from('notifications').upsert({
-    id: notif.id.startsWith('notif-') ? undefined : notif.id,
-    id_destinatario: id_destinatario || 'system',
-    tipo: notif.tipo,
-    subtipo: notif.subtipo,
-    titulo: notif.titulo,
-    texto: notif.texto,
-    lida: notif.lida,
-    meta: notif.meta
-  });
+    const { error } = await client.from('notifications').upsert({
+      id: notif.id,
+      id_destinatario: id_destinatario || 'system',
+      tipo: notif.tipo,
+      subtipo: notif.subtipo,
+      titulo: notif.titulo,
+      texto: notif.texto,
+      lida: notif.lida,
+      meta: notif.meta
+    });
 
-  if (error) {
-    console.error('Error saving notification to Supabase:', error);
+    if (error) {
+      console.warn('Notice: Could not sync notification to Supabase:', error.message || error);
+      return false;
+    }
+    return true;
+  } catch (err: any) {
+    console.warn('Notice: Exception saving notification to Supabase:', err?.message || err);
     return false;
   }
-  return true;
 };
 
 export const saveDailyReportToSupabase = async (report: DailyReport): Promise<boolean> => {
@@ -260,7 +306,7 @@ export const saveDailyReportToSupabase = async (report: DailyReport): Promise<bo
       .single();
 
     if (repErr || !insertedReport) {
-      console.error('Error saving daily report to Supabase:', repErr);
+      console.warn('Notice: Could not sync daily report to Supabase:', repErr?.message || repErr);
       return false;
     }
 
@@ -279,27 +325,55 @@ export const saveDailyReportToSupabase = async (report: DailyReport): Promise<bo
         .upsert(itemsToInsert);
 
       if (itemErr) {
-        console.error('Error saving daily report items to Supabase:', itemErr);
+        console.warn('Notice: Could not sync daily report items to Supabase:', itemErr?.message || itemErr);
       }
     }
 
     return true;
   } catch (err) {
-    console.error('Error in saveDailyReportToSupabase:', err);
+    console.warn('Notice: Exception in saveDailyReportToSupabase:', err);
+    return false;
+  }
+};
+export const saveAttendanceToSupabase = async (attendance: Attendance): Promise<boolean> => {
+  try {
+    const client = getSupabaseClient();
+    if (!client) return false;
+
+    const { error } = await client.from('attendances').upsert({
+      id: attendance.id,
+      id_usuario: attendance.id_usuario,
+      data: attendance.data,
+      hora_entrada: attendance.hora_entrada,
+      hora_saida: attendance.hora_saida
+    });
+
+    if (error) {
+      console.warn('Notice: Could not sync attendance to Supabase:', error.message || error);
+      return false;
+    }
+    return true;
+  } catch (err: any) {
+    console.warn('Notice: Exception saving attendance to Supabase:', err?.message || err);
     return false;
   }
 };
 
 export const deleteTaskFromSupabase = async (taskId: string): Promise<boolean> => {
-  const client = getSupabaseClient();
-  if (!client) return false;
+  try {
+    const client = getSupabaseClient();
+    if (!client) return false;
 
-  const { error } = await client.from('tasks').delete().eq('id', taskId);
-  if (error) {
-    console.error('Error deleting task from Supabase:', error);
+    const { error } = await client.from('tasks').delete().eq('id', taskId);
+    if (error) {
+      console.warn('Notice: Could not delete task from Supabase:', error.message || error);
+      return false;
+    }
+    return true;
+  } catch (err: any) {
+    console.warn('Notice: Exception deleting task from Supabase:', err?.message || err);
     return false;
   }
-  return true;
 };
 
 

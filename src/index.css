@@ -56,8 +56,8 @@
   
   --color-primary: #5c54a5;
   --color-on-primary: #ffffff;
-  --color-primary-container: #eae8f9;
-  --color-on-primary-container: #1b1063;
+  --color-primary-container: #5a52a3;
+  --color-on-primary-container: #ffffff;
   --color-inverse-primary: #c6bfff;
   
   --color-secondary: #af8910;
@@ -109,28 +109,10 @@
   color: var(--color-on-surface-variant) !important;
 }
 
-/* Ensure buttons and badges with primary colors retain their light text contrast */
-.light-theme button.bg-primary-container,
-.light-theme button.bg-primary-container *,
-.light-theme .bg-primary-container *,
-.light-theme button.bg-emerald-500,
-.light-theme button.bg-emerald-600,
-.light-theme button.bg-emerald-500 *,
-.light-theme button.bg-red-500,
-.light-theme button.bg-[#5A52A3],
-.light-theme button.bg-[#5A52A3] *,
-.light-theme button.bg-[#5a52a3],
-.light-theme button.bg-[#5a52a3] *,
-.light-theme .bg-emerald-500 *,
-.light-theme .bg-emerald-600 *,
-.light-theme .bg-red-500 *,
-.light-theme .bg-error *,
-.light-theme .bg-error {
-  color: #ffffff !important;
-}
+/* Ensure solid background buttons retain white text contrast in light theme */
 
 .light-theme .text-white {
-  color: var(--color-on-surface) !important;
+  color: var(--color-on-surface);
 }
 
 /* Keep brand elements and high-contrast texts highlighted */
